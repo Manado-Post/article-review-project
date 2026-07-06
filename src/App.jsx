@@ -208,33 +208,9 @@ function App() {
                   className="w-full rounded-3xl border border-blue-200 bg-white px-5 py-4 text-sm outline-none ring-blue-300 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   placeholder="Masukkan tautan artikel, misal manadopost.id/..."
                 />
-              ) : (
-                <div className="space-y-4">
-                  <input
-                    value={url}
-                    onChange={(event) => setUrl(event.target.value)}
-                    type="url"
-                    className="w-full rounded-3xl border border-blue-200 bg-white px-5 py-4 text-sm outline-none ring-blue-300 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    placeholder="Masukkan tautan artikel, misal manadopost.id/..."
-                  />
-                  <p className="text-sm text-slate-500">
-                    Tempel URL artikel dari website mana pun untuk dianalisis.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-blue-200">
-              <div className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
-                Ringkasan
-              </div>
-              <div className="text-4xl font-semibold text-blue-950">
-                {activeTab === "paste" ? words : url ? "URL" : "0"}
-              </div>
-              <div className="text-sm text-slate-500">
-                {activeTab === "paste"
-                  ? "Jumlah kata"
-                  : "Tautan yang akan dianalisis"}
+                <p className="mt-3 text-sm text-slate-500">
+                  Tempel URL artikel dari website mana pun untuk dianalisis.
+                </p>
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
