@@ -342,34 +342,6 @@ export const analyzeStruktur = (text) => {
       `Lead terlalu panjang (${leadWords} kata, ideal 40-60). AI sulit ekstrak.`,
     );
   }
-  
-  const hasFiveW = has5W1H(firstParagraph);
-  
-  return { 
-    score: Math.max(0, score), 
-    notes, 
-    meta: { leadWords, headingCount, requiredHeadings, paragraphCount: paragraphs.length, has5W1H: hasFiveW }
-  };
-};
-
-  const requiredHeadings = wordCount < 400 ? 0 : wordCount < 800 ? 2 : 3;
-  if (wordCount >= 400 && headingCount < requiredHeadings) {
-    score -= 10;
-    notes.push(
-      `Butuh minimal ${requiredHeadings} subjudul untuk artikel ${wordCount} kata.`,
-    );
-  }
-
-  if (paragraphs.length < 3) {
-    score -= 10;
-    notes.push("Minimal 3 paragraf untuk struktur piramida terbalik.");
-  }
-
-  const hasAttr = /\b(menurut|ujar|kata|jelas|tutur|sebut)\b/i.test(text);
-  if (!hasAttr) {
-    score -= 10;
-    notes.push("Tidak ada atribusi narasumber.");
-  }
 
   const hasFiveW = has5W1H(firstParagraph);
 
@@ -384,6 +356,39 @@ export const analyzeStruktur = (text) => {
       has5W1H: hasFiveW,
     },
   };
+};
+
+const requiredHeadings = wordCount < 400 ? 0 : wordCount < 800 ? 2 : 3;
+if (wordCount >= 400 && headingCount < requiredHeadings) {
+  score -= 10;
+  notes.push(
+    `Butuh minimal ${requiredHeadings} subjudul untuk artikel ${wordCount} kata.`,
+  );
+}
+
+if (paragraphs.length < 3) {
+  score -= 10;
+  notes.push("Minimal 3 paragraf untuk struktur piramida terbalik.");
+}
+
+const hasAttr = /\b(menurut|ujar|kata|jelas|tutur|sebut)\b/i.test(text);
+if (!hasAttr) {
+  score -= 10;
+  notes.push("Tidak ada atribusi narasumber.");
+}
+
+const hasFiveW = has5W1H(firstParagraph);
+
+return {
+  score: Math.max(0, score),
+  notes,
+  meta: {
+    leadWords,
+    headingCount,
+    requiredHeadings,
+    paragraphCount: paragraphs.length,
+    has5W1H: hasFiveW,
+  },
 };
 
 // --- BAHASA & GAYA ENHANCED ---
@@ -409,7 +414,6 @@ const detectPassiveSentences = (text) => {
         note: `Kalimat pasif: "${passiveWord}"`,
       });
     }
-
 
     const words = trimmed.split(/\s+/);
     if (words.length > 25) {
@@ -480,7 +484,7 @@ export const analyzeBahasaHeuristic = (text) => {
 
   const notes = [];
   let score = 100;
-  
+
   if (readability < 50) {
     score -= 15;
     notes.push(`Keterbacaan rendah (skor ≈${readability}).`);
@@ -601,7 +605,7 @@ const detectTechnicalIssues = (text) => {
 export const analyzeTeknis = (text) => {
   const notes = [];
   let score = 100;
-  
+
   const doubleSpaces = (text.match(/\s{2,}/g) || []).length;
   if (doubleSpaces > 3) {
     score -= 5;
