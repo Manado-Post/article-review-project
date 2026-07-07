@@ -9,7 +9,7 @@ const validModes = ['local', 'hybrid', 'llm'];
 const configuredMode = process.env.MODE?.toLowerCase() || 'hybrid';
 
 export const config = {
-  port: process.env.PORT || 4000,
+  port: process.env.PORT || 4001,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   mode: validModes.includes(configuredMode) ? configuredMode : 'hybrid',
 };

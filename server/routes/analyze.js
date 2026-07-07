@@ -5,6 +5,8 @@ import {
   analyzeSEO,
   analyzeTeknis,
   analyzeMachineReadability,
+  analyzeKonten,
+  analyzeEtika,
 } from "../services/heuristics.js";
 import { evaluateWithLLM } from "../services/llmEvaluator.js";
 import { hashText, getCached, setCached } from "../services/cache.js";
@@ -13,6 +15,9 @@ import { extractVerificationFlags } from "../services/factExtractor.js";
 import { config } from "../config.js";
 
 const router = Router();
+
+// Cache versioning - increment when structure changes
+const CACHE_VERSION = 'v3';
 
 // Weights (konten + etika = 0.45 via LLM, others = 0.55 via heuristics)
 const WEIGHTS = {
@@ -107,8 +112,8 @@ router.post("/analyze", async (req, res) => {
       return res.status(400).json({ error: "Teks artikel atau URL diperlukan." });
     }
 
-    // Check cache (include mode in cache consideration)
-    const cacheKey = hashText(articleText + `|mode:${mode}`);
+    // Check cache (include mode and version in cache key)
+    const cacheKey = hashText(articleText + `|mode:${mode}|ver:${CACHE_VERSION}`);
     const cached = getCached(cacheKey);
     if (cached && cached.mode === mode) {
       return res.json({ 
@@ -125,6 +130,8 @@ router.post("/analyze", async (req, res) => {
     const seo = analyzeSEO(articleText);
     const teknis = analyzeTeknis(articleText);
     const machineReadability = analyzeMachineReadability(articleText);
+    const konten = analyzeKonten(articleText);
+    const etika = analyzeEtika(articleText);
     
     // Extract verification flags for UI
     const verificationFlags = extractVerificationFlags(articleText);
@@ -140,8 +147,25 @@ router.post("/analyze", async (req, res) => {
       // 3. Call LLM for konten & etika
       llmResult = await evaluateWithLLM(articleText);
     } else {
-      // Use heuristic estimation for LLM scores
-      llmResult = estimateLLMScores(struktur, bahasaHeuristik, seo, articleText);
+      // Use real heuristic analysis for LLM scores (local mode)
+      llmResult = {
+        konten: { 
+          score: konten.score,
+          note: konten.notes[0] || "Analisis heuristik selesai",
+          strengths: konten.strengths,
+          weaknesses: konten.weaknesses
+        },
+        etika: { 
+          score: etika.score,
+          note: etika.notes[0] || "Analisis heuristik selesai",
+          strengths: etika.strengths,
+          weaknesses: etika.weaknesses
+        },
+        highlights: [],
+        // Include full detail for UI
+        kontenDetail: konten,
+        etikaDetail: etika
+      };
     }
 
     // 4. Calculate weighted overall score
@@ -163,18 +187,28 @@ router.post("/analyze", async (req, res) => {
       summary: llmResult.konten.note,
       mode: useLocalMode ? 'local' : (mode === 'llm' ? 'llm' : 'hybrid'),
       details: [
-        { name: "Konten & Sumber", value: String(llmResult.konten.score), text: llmResult.konten.note },
+        { 
+          name: "Konten & Sumber", 
+          value: String(llmResult.konten.score), 
+          text: llmResult.konten.note,
+          strengths: llmResult.konten.strengths || [],
+          weaknesses: llmResult.konten.weaknesses || []
+        },
         { name: "Struktur/Format", value: String(struktur.score), text: struktur.notes.join(" ") },
         { name: "Bahasa & Gaya", value: String(bahasaHeuristik.score), text: bahasaHeuristik.notes.join(" "), weaknesses: bahasaHeuristik.weaknesses || [] },
-        { name: "Etika & Legalitas", value: String(llmResult.etika.score), text: llmResult.etika.note },
+        { 
+          name: "Etika & Legalitas", 
+          value: String(llmResult.etika.score), 
+          text: llmResult.etika.note,
+          strengths: llmResult.etika.strengths || [],
+          weaknesses: llmResult.etika.weaknesses || []
+        },
         { name: "SEO & Audiens", value: String(seo.score), text: seo.notes.join(" ") },
         { name: "Pemeriksaan Teknis", value: String(teknis.score), text: teknis.notes.join(" "), weaknesses: teknis.weaknesses || [] },
-        // AI-SEO score from Jawa Pos methodology
-        { name: "Mesin-Baca (AI-SEO)", value: String(machineReadability.score), text: machineReadability.notes.join(" ") || "Skor keterbacaan untuk mesin (Google AI, LLM)", meta: machineReadability.meta },
+        { name: "Mesin-Baca (AI-SEO)", value: String(machineReadability.score), text: machineReadability.notes.join(" ") || "Skor keterbacaan untuk mesin (Google AI, LLM)" },
       ],
-      highlights: llmResult.highlights || [],
-      // Verification flags for manual review
-      verificationFlags: verificationFlags.flags,
+      highlights: Array.isArray(llmResult.highlights) ? llmResult.highlights : [],
+      verificationFlags: Array.isArray(verificationFlags.flags) ? verificationFlags.flags : [],
       verificationSummary: verificationFlags.summary,
       sourceUrl: sourceUrl,
       sourceDomain: sourceDomain,

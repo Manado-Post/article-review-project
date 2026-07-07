@@ -43,25 +43,36 @@ const WeaknessLegend = () => (
 
 // Special component for spacing issues with boxed display (Option B)
 const SpacingIssueBox = ({ issue }) => {
-  const spaceDisplay = '·'.repeat(issue.spaceCount); // Show spaces as dots
+  if (!issue || typeof issue !== 'object') return null;
+  
+  // Helper to safely get string values
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+  
+  const spaceDisplay = issue.spaceCount ? '·'.repeat(Math.min(issue.spaceCount, 20)) : '·';
   
   return (
     <div className="border-2 border-red-300 bg-red-50 rounded-xl p-3 mt-2">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-red-600 font-bold">{issue.note}</span>
+        <span className="text-red-600 font-bold">{toString(issue.note)}</span>
       </div>
       
       {/* Main display box */}
       <div className="bg-white border border-slate-200 rounded-lg p-3 font-mono text-sm">
         <div className="flex items-center justify-center gap-1 text-slate-400 text-xs mb-1">
           <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
-            {issue.before}
+            {toString(issue.before)}
           </span>
           <span className="px-2 py-0.5 bg-red-200 text-red-700 border border-red-400 rounded font-bold">
             {spaceDisplay}
           </span>
           <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
-            {issue.after}
+            {toString(issue.after)}
           </span>
         </div>
         
@@ -73,7 +84,7 @@ const SpacingIssueBox = ({ issue }) => {
           <div className="text-xs text-slate-500 mt-2 border-t border-slate-200 pt-2">
             <span className="text-slate-400">Konteks:</span>
             <pre className="mt-1 whitespace-pre-wrap break-all font-sans text-slate-600">
-              {issue.context}
+              {toString(issue.context)}
             </pre>
           </div>
         )}
@@ -81,7 +92,7 @@ const SpacingIssueBox = ({ issue }) => {
       
       {issue.recommendation && (
         <p className="text-xs text-slate-500 mt-2 italic">
-          💡 {issue.recommendation}
+          💡 {toString(issue.recommendation)}
         </p>
       )}
     </div>
@@ -90,16 +101,27 @@ const SpacingIssueBox = ({ issue }) => {
 
 // Special component for trailing whitespace issues
 const TrailingIssueBox = ({ issue }) => {
+  if (!issue || typeof issue !== 'object') return null;
+  
+  // Helper to safely get string values
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+  
   return (
     <div className="border-2 border-slate-300 bg-slate-50 rounded-xl p-3 mt-2">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-slate-600 font-bold">{issue.note}</span>
-        <span className="text-xs text-slate-500">Baris {issue.line}</span>
+        <span className="text-slate-600 font-bold">{toString(issue.note)}</span>
+        <span className="text-xs text-slate-500">Baris {toString(issue.line)}</span>
       </div>
       
       <div className="bg-white border border-slate-200 rounded-lg p-2 font-mono text-sm">
         <div className="flex items-end">
-          <span className="text-slate-400 break-all">{issue.lineContent}</span>
+          <span className="text-slate-400 break-all">{toString(issue.lineContent)}</span>
           <span className="text-red-400 flex-shrink-0">· · ·</span>
         </div>
         <div className="text-center text-slate-400 text-xs mt-1">↑ spasi di akhir baris</div>
@@ -107,7 +129,7 @@ const TrailingIssueBox = ({ issue }) => {
       
       {issue.recommendation && (
         <p className="text-xs text-slate-500 mt-2 italic">
-          💡 {issue.recommendation}
+          💡 {toString(issue.recommendation)}
         </p>
       )}
     </div>
@@ -115,13 +137,26 @@ const TrailingIssueBox = ({ issue }) => {
 };
 
 const WeaknessList = ({ weaknesses, max = 5 }) => {
-  if (!weaknesses || weaknesses.length === 0) return null;
+  if (!weaknesses || !Array.isArray(weaknesses) || weaknesses.length === 0) return null;
   const display = weaknesses.slice(0, max);
+  
+  // Helper to safely convert value to string for display
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
   
   return (
     <div className="mt-3 space-y-2">
       {display.map((w, i) => {
+        // Ensure w is an object with expected properties
+        if (!w || typeof w !== 'object') return null;
+        
         const style = weaknessStyles[w.type] || weaknessStyles.passive;
+        const weakText = toString(w.text);
         
         // Special rendering for spacing issues (Option B)
         if (w.type === 'spacing') {
@@ -147,16 +182,20 @@ const WeaknessList = ({ weaknesses, max = 5 }) => {
             <span className="mt-0.5">{style.icon}</span>
             <div>
               <p className="font-medium text-slate-700">
-                {w.passiveWord && <span className="text-red-600 font-bold">"{w.passiveWord}"</span>}
-                {w.wordCount && <span>Kalimat {w.wordCount} kata</span>}
-                {w.count && <span>"{w.text}" {w.count}x</span>}
-                {w.type === 'linebreak' || w.type === 'quotes' ? <span>{w.note || "Masalah teknis"}</span> : null}
+                {w.passiveWord && (
+                  <span className="text-red-600 font-bold">"{toString(w.passiveWord)}"</span>
+                )}
+                {w.wordCount && <span>Kalimat {toString(w.wordCount)} kata</span>}
+                {w.count && <span>"{weakText}" {toString(w.count)}x</span>}
+                {(w.type === 'linebreak' || w.type === 'quotes') && (
+                  <span>{toString(w.note) || "Masalah teknis"}</span>
+                )}
               </p>
-              {w.text && w.type !== 'formal' && (
-                <p className="text-slate-500 mt-0.5">{w.text.slice(0, 120)}...</p>
+              {weakText && w.type !== 'formal' && (
+                <p className="text-slate-500 mt-0.5">{weakText.slice(0, 120)}{weakText.length > 120 ? '...' : ''}</p>
               )}
               {w.recommendation && (
-                <p className="text-slate-500 mt-0.5 italic">💡 {w.recommendation}</p>
+                <p className="text-slate-500 mt-0.5 italic">💡 {toString(w.recommendation)}</p>
               )}
             </div>
           </div>
@@ -177,11 +216,23 @@ const flagStyles = {
 };
 
 const VerificationFlagList = ({ flags }) => {
-  if (!flags || flags.length === 0) return null;
+  if (!flags || !Array.isArray(flags) || flags.length === 0) return null;
+
+  // Helper to safely convert value to string for display
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
 
   return (
     <div className="space-y-3">
       {flags.map((flag, idx) => {
+        // Ensure flag is an object with expected properties
+        if (!flag || typeof flag !== 'object') return null;
+        
         const style = flagStyles[flag.priority] || flagStyles.medium;
         return (
           <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl text-sm ${style.class}`}>
@@ -191,15 +242,15 @@ const VerificationFlagList = ({ flags }) => {
                 <span className="font-semibold text-slate-700">{style.label}</span>
               </div>
               <p className="mt-1 text-slate-600">
-                {flag.text && <span>"{flag.text}" </span>}
-                {flag.attributedTo && <span>- {flag.attributedTo}</span>}
-                {flag.context && !flag.text && <span>{flag.context.slice(0, 100)}</span>}
-                {flag.keyword && <span className="text-red-600 font-semibold">"{flag.keyword}"</span>}
-                {flag.subject && <span>{flag.subject}</span>}
+                {flag.text && <span>"{toString(flag.text).slice(0, 100)}" </span>}
+                {flag.attributedTo && <span>- {toString(flag.attributedTo)}</span>}
+                {flag.context && !flag.text && <span>{toString(flag.context).slice(0, 100)}</span>}
+                {flag.keyword && <span className="text-red-600 font-semibold">"{toString(flag.keyword)}"</span>}
+                {flag.subject && <span>{toString(flag.subject)}</span>}
               </p>
               {flag.recommendation && (
                 <p className="mt-1 text-xs text-slate-500 italic">
-                  💡 {flag.recommendation}
+                  💡 {toString(flag.recommendation)}
                 </p>
               )}
               <div className="mt-2 flex gap-2">
@@ -479,7 +530,7 @@ function App() {
 
             {/* Score Cards */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {result.details.map((item) => (
+              {(result.details || []).map((item) => (
                 <article
                   key={item.name}
                   className={`rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200 ${
@@ -487,17 +538,19 @@ function App() {
                       ? "ring-2 ring-blue-300" 
                       : item.name.includes("Mesin-Baca") 
                         ? "ring-2 ring-purple-300" 
-                        : ""
+                        : item.name.includes("Konten") || item.name.includes("Etika")
+                          ? "ring-2 ring-green-300"
+                          : ""
                   }`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm font-semibold text-blue-700">{item.name}</p>
                     <span className={`text-2xl font-semibold ${
-                      parseInt(item.value) >= 80 
+                      parseInt(item.value || 0) >= 80 
                         ? "text-emerald-600" 
-                        : parseInt(item.value) >= 60 
+                        : parseInt(item.value || 0) >= 60 
                           ? "text-blue-600" 
-                          : parseInt(item.value) >= 50 
+                          : parseInt(item.value || 0) >= 50 
                             ? "text-amber-600" 
                             : "text-red-600"
                     }`}>
@@ -506,6 +559,32 @@ function App() {
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
                   
+                  {/* Strengths for Konten & Etika */}
+                  {item.strengths && item.strengths.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {item.strengths.slice(0, 3).map((s, i) => (
+                        <p key={i} className="text-xs text-emerald-600 flex items-start gap-1">
+                          <span>✅</span>
+                          <span>{s}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Weaknesses for Konten & Etika */}
+                  {item.weaknesses && item.weaknesses.length > 0 && 
+                   item.name !== "Bahasa & Gaya" && item.name !== "Pemeriksaan Teknis" && (
+                    <div className="mt-2 space-y-1">
+                      {item.weaknesses.slice(0, 3).map((w, i) => (
+                        <p key={i} className="text-xs text-amber-600 flex items-start gap-1">
+                          <span>⚠️</span>
+                          <span>{w}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* WeaknessList for Bahasa & Teknis */}
                   {(item.name === "Bahasa & Gaya" || item.name === "Pemeriksaan Teknis") && (
                     <WeaknessList weaknesses={item.weaknesses} />
                   )}
@@ -513,17 +592,69 @@ function App() {
               ))}
             </div>
 
-            {/* Weaknesses Section */}
-            {result.details.some(d => d.weaknesses?.length > 0) && (
+            {/* Strengths Section - Konten & Etika */}
+            {(result.details || []).some(d => d.strengths?.length > 0) && (
+              <div className="rounded-3xl bg-emerald-50 p-6 shadow-sm ring-2 ring-emerald-200">
+                <h3 className="text-lg font-semibold text-emerald-800 mb-3">
+                  💪 Kekuatan Artikel
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(result.details || []).filter(d => d.strengths?.length > 0).map(d => (
+                    <div key={d.name} className="bg-white rounded-xl p-4">
+                      <p className="text-sm font-semibold text-slate-700 mb-2">{d.name}</p>
+                      <div className="space-y-1">
+                        {d.strengths.map((s, i) => (
+                          <p key={i} className="text-xs text-emerald-600 flex items-start gap-1">
+                            <span>✅</span>
+                            <span>{s}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weaknesses Section - Konten & Etika */}
+            {(result.details || []).filter(d => d.weaknesses?.length > 0 && 
+              (d.name.includes("Konten") || d.name.includes("Etika"))).length > 0 && (
+              <div className="rounded-3xl bg-amber-50 p-6 shadow-sm ring-2 ring-amber-200">
+                <h3 className="text-lg font-semibold text-amber-800 mb-3">
+                  ⚠️ Titik Lemah yang Perlu Diperbaiki
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(result.details || []).filter(d => d.weaknesses?.length > 0 && 
+                    (d.name.includes("Konten") || d.name.includes("Etika"))).map(d => (
+                    <div key={d.name} className="bg-white rounded-xl p-4">
+                      <p className="text-sm font-semibold text-slate-700 mb-2">{d.name}</p>
+                      <div className="space-y-1">
+                        {d.weaknesses.map((w, i) => (
+                          <p key={i} className="text-xs text-amber-600 flex items-start gap-1">
+                            <span>⚠️</span>
+                            <span>{w}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Technical Weaknesses Section - Bahasa & Teknis */}
+            {(result.details || []).some(d => d.weaknesses?.length > 0 && 
+              (d.name.includes("Bahasa") || d.name.includes("Teknis"))) && (
               <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-semibold text-blue-950">
-                    Titik Kelemahan Detail
+                    Titik Kelemahan Teknis
                   </h3>
                   <WeaknessLegend />
                 </div>
                 <div className="mt-4 space-y-3">
-                  {result.details.filter(d => d.weaknesses?.length > 0).map(d => (
+                  {(result.details || []).filter(d => d.weaknesses?.length > 0 && 
+                    (d.name.includes("Bahasa") || d.name.includes("Teknis"))).map(d => (
                     <div key={d.name}>
                       <p className="text-sm font-semibold text-slate-700 mb-2">
                         {d.name} ({d.weaknesses.length} temuan)
@@ -542,7 +673,7 @@ function App() {
                   Sorotan Kalimat
                 </h3>
                 <div className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
-                  {result.highlights.map((item, idx) => (
+                  {(result.highlights || []).map((item, idx) => (
                     <div
                       key={idx}
                       className={`rounded-3xl border p-4 ${
