@@ -5,6 +5,8 @@ import {
   analyzeSEO,
   analyzeTeknis,
   analyzeMachineReadability,
+  analyzeKonten,
+  analyzeEtika,
 } from "../services/heuristics.js";
 import { evaluateWithLLM } from "../services/llmEvaluator.js";
 import { hashText, getCached, setCached } from "../services/cache.js";
@@ -14,12 +16,15 @@ import { config } from "../config.js";
 
 const router = Router();
 
+// Cache versioning - increment when structure changes
+const CACHE_VERSION = 'v3';
+
 // Weights (konten + etika = 0.45 via LLM, others = 0.55 via heuristics)
 const WEIGHTS = {
   struktur: 0.2,
   bahasa: 0.15,
-  seo: 0.1,
-  teknis: 0.1,
+  seo: 0.10,
+  teknis: 0.10,
 };
 
 // Thresholds for LLM bypass (cost optimization)
@@ -35,7 +40,7 @@ const estimateHeuristicScore = (struktur, bahasa, seo, teknis) => {
   );
   return {
     heuristicOnly: heuristicScore,
-    estimated: heuristicScore + 30, // proxy for avg konten+etika
+    estimated: heuristicScore + 30 // proxy for avg konten+etika
   };
 };
 
@@ -43,39 +48,34 @@ const estimateHeuristicScore = (struktur, bahasa, seo, teknis) => {
  * Estimate LLM scores using heuristics (local mode)
  */
 const estimateLLMScores = (struktur, bahasa, seo, text) => {
-  const wordCount = text.trim().split(/\s+/).length;
-
+  const wordCount = (text.trim().split(/\s+/)).length;
+  
   // Estimate konten score based on SEO, structure, and word count
   let kontenEstimate = 60;
   if (seo.score >= 80 && wordCount >= 400) kontenEstimate += 15;
   else if (seo.score >= 60 && wordCount >= 300) kontenEstimate += 10;
   if (struktur.score >= 80) kontenEstimate += 10;
   if (seo.score >= 70) kontenEstimate += 5;
-
+  
   // Estimate etika score based on attribution and content patterns
   let etikaEstimate = 70;
-  const hasOfficialSources =
-    /\b(BNPB|BPS|Kemendagri|Kementerian|BMKG|BPK|PUPR|Pemerintah)\b/i.test(
-      text,
-    );
-  const hasDefamationRisk = /koruptor|tersangka|pelaku.*tanpa.*diduga/i.test(
-    text,
-  );
+  const hasOfficialSources = /\b(BNPB|BPS|Kemendagri|Kementerian|BMKG|BPK|PUPR|Pemerintah)\b/i.test(text);
+  const hasDefamationRisk = /koruptor|tersangka|pelaku.*tanpa.*diduga/i.test(text);
   const hasMultipleSides = (text.match(/,/g) || []).length > 5; // Multiple sources
-
+  
   if (hasOfficialSources) etikaEstimate += 10;
   if (hasMultipleSides) etikaEstimate += 5;
   if (hasDefamationRisk) etikaEstimate -= 20;
-
+  
   return {
-    konten: {
-      score: Math.min(100, Math.max(30, kontenEstimate)),
-      note: "[Estimasi otomatis - mode lokal]",
+    konten: { 
+      score: Math.min(100, Math.max(30, kontenEstimate)), 
+      note: "[Estimasi otomatis - mode lokal]" 
     },
-    etika: {
-      score: Math.min(100, Math.max(30, etikaEstimate)),
-      note: "[Estimasi otomatis - mode lokal]",
-    },
+    etika: { 
+      score: Math.min(100, Math.max(30, etikaEstimate)), 
+      note: "[Estimasi otomatis - mode lokal]" 
+    }
   };
 };
 
@@ -85,13 +85,12 @@ router.post("/analyze", async (req, res) => {
   try {
     // Determine mode: requested mode takes priority, then config
     const mode = requestedMode || config.mode;
-
+    
     // If local mode requested but API key exists, still use local
-    const useLocalMode =
-      mode === "local" ||
-      (mode === "hybrid" && !config.anthropicApiKey) ||
-      (mode === "llm" && !config.anthropicApiKey);
-
+    const useLocalMode = mode === 'local' || 
+      (mode === 'hybrid' && !config.anthropicApiKey) ||
+      (mode === 'llm' && !config.anthropicApiKey);
+    
     let articleText = text;
     let sourceUrl = null;
     let sourceDomain = null;
@@ -115,12 +114,12 @@ router.post("/analyze", async (req, res) => {
         .json({ error: "Teks artikel atau URL diperlukan." });
     }
 
-    // Check cache (include mode in cache consideration)
-    const cacheKey = hashText(articleText + `|mode:${mode}`);
+    // Check cache (include mode and version in cache key)
+    const cacheKey = hashText(articleText + `|mode:${mode}|ver:${CACHE_VERSION}`);
     const cached = getCached(cacheKey);
     if (cached && cached.mode === mode) {
-      return res.json({
-        ...cached,
+      return res.json({ 
+        ...cached, 
         fromCache: true,
         sourceUrl: sourceUrl,
         sourceDomain: sourceDomain,
@@ -133,19 +132,15 @@ router.post("/analyze", async (req, res) => {
     const seo = analyzeSEO(articleText);
     const teknis = analyzeTeknis(articleText);
     const machineReadability = analyzeMachineReadability(articleText);
-
+    const konten = analyzeKonten(articleText);
+    const etika = analyzeEtika(articleText);
+    
     // Extract verification flags for UI
     const verificationFlags = extractVerificationFlags(articleText);
 
     // 2. Decide whether to use LLM
-    const { heuristicOnly, estimated } = estimateHeuristicScore(
-      struktur,
-      bahasaHeuristik,
-      seo,
-      teknis,
-    );
-    const skipLLM =
-      useLocalMode || estimated >= HIGH_THRESHOLD || estimated < LOW_THRESHOLD;
+    const { heuristicOnly, estimated } = estimateHeuristicScore(struktur, bahasaHeuristik, seo, teknis);
+    const skipLLM = useLocalMode || estimated >= HIGH_THRESHOLD || estimated < LOW_THRESHOLD;
 
     let llmResult;
     let skippedLLM = skipLLM;
@@ -154,13 +149,25 @@ router.post("/analyze", async (req, res) => {
       // 3. Call LLM for konten & etika
       llmResult = await evaluateWithLLM(articleText);
     } else {
-      // Use heuristic estimation for LLM scores
-      llmResult = estimateLLMScores(
-        struktur,
-        bahasaHeuristik,
-        seo,
-        articleText,
-      );
+      // Use real heuristic analysis for LLM scores (local mode)
+      llmResult = {
+        konten: { 
+          score: konten.score,
+          note: konten.notes[0] || "Analisis heuristik selesai",
+          strengths: konten.strengths,
+          weaknesses: konten.weaknesses
+        },
+        etika: { 
+          score: etika.score,
+          note: etika.notes[0] || "Analisis heuristik selesai",
+          strengths: etika.strengths,
+          weaknesses: etika.weaknesses
+        },
+        highlights: [],
+        // Include full detail for UI
+        kontenDetail: konten,
+        etikaDetail: etika
+      };
     }
 
     // 4. Calculate weighted overall score
@@ -184,58 +191,35 @@ router.post("/analyze", async (req, res) => {
       overallScore,
       verdict,
       summary: llmResult.konten.note,
-      mode: useLocalMode ? "local" : mode === "llm" ? "llm" : "hybrid",
+      mode: useLocalMode ? 'local' : (mode === 'llm' ? 'llm' : 'hybrid'),
       details: [
-        {
-          name: "Konten & Sumber",
-          value: String(llmResult.konten.score),
+        { 
+          name: "Konten & Sumber", 
+          value: String(llmResult.konten.score), 
           text: llmResult.konten.note,
+          strengths: llmResult.konten.strengths || [],
+          weaknesses: llmResult.konten.weaknesses || []
         },
-        {
-          name: "Struktur/Format",
-          value: String(struktur.score),
-          text: struktur.notes.join(" "),
-        },
-        {
-          name: "Bahasa & Gaya",
-          value: String(bahasaHeuristik.score),
-          text: bahasaHeuristik.notes.join(" "),
-          weaknesses: bahasaHeuristik.weaknesses || [],
-        },
-        {
-          name: "Etika & Legalitas",
-          value: String(llmResult.etika.score),
+        { name: "Struktur/Format", value: String(struktur.score), text: struktur.notes.join(" ") },
+        { name: "Bahasa & Gaya", value: String(bahasaHeuristik.score), text: bahasaHeuristik.notes.join(" "), weaknesses: bahasaHeuristik.weaknesses || [] },
+        { 
+          name: "Etika & Legalitas", 
+          value: String(llmResult.etika.score), 
           text: llmResult.etika.note,
+          strengths: llmResult.etika.strengths || [],
+          weaknesses: llmResult.etika.weaknesses || []
         },
-        {
-          name: "SEO & Audiens",
-          value: String(seo.score),
-          text: seo.notes.join(" "),
-        },
-        {
-          name: "Pemeriksaan Teknis",
-          value: String(teknis.score),
-          text: teknis.notes.join(" "),
-          weaknesses: teknis.weaknesses || [],
-        },
-        // AI-SEO score from Jawa Pos methodology
-        {
-          name: "Mesin-Baca (AI-SEO)",
-          value: String(machineReadability.score),
-          text:
-            machineReadability.notes.join(" ") ||
-            "Skor keterbacaan untuk mesin (Google AI, LLM)",
-          meta: machineReadability.meta,
-        },
+        { name: "SEO & Audiens", value: String(seo.score), text: seo.notes.join(" ") },
+        { name: "Pemeriksaan Teknis", value: String(teknis.score), text: teknis.notes.join(" "), weaknesses: teknis.weaknesses || [] },
+        { name: "Mesin-Baca (AI-SEO)", value: String(machineReadability.score), text: machineReadability.notes.join(" ") || "Skor keterbacaan untuk mesin (Google AI, LLM)" },
       ],
-      highlights: llmResult.highlights || [],
-      // Verification flags for manual review
-      verificationFlags: verificationFlags.flags,
+      highlights: Array.isArray(llmResult.highlights) ? llmResult.highlights : [],
+      verificationFlags: Array.isArray(verificationFlags.flags) ? verificationFlags.flags : [],
       verificationSummary: verificationFlags.summary,
       sourceUrl: sourceUrl,
       sourceDomain: sourceDomain,
       fromCache: false,
-      skippedLLM: skippedLLM,
+      skippedLLM: skippedLLM
     };
 
     setCached(cacheKey, result);
@@ -253,26 +237,26 @@ router.post("/analyze", async (req, res) => {
 router.get("/modes", (req, res) => {
   res.json({
     modes: [
-      {
-        id: "local",
-        name: "Mode Lokal",
-        description: "Gratis, instan (~70% akurat)",
+      { 
+        id: 'local', 
+        name: 'Mode Lokal', 
+        description: 'Gratis, instan (~70% akurat)',
         requiresApiKey: false,
-        features: ["Heuristic scoring", "Basic fact extraction"],
+        features: ['Heuristic scoring', 'Basic fact extraction']
       },
-      {
-        id: "hybrid",
-        name: "Mode Hybrid",
-        description: "Akurat (~85% akurat), hemat biaya",
+      { 
+        id: 'hybrid', 
+        name: 'Mode Hybrid', 
+        description: 'Akurat (~85% akurat), hemat biaya',
         requiresApiKey: true,
-        features: ["Heuristic + LLM", "Smart bypass", "Fact extraction"],
+        features: ['Heuristic + LLM', 'Smart bypass', 'Fact extraction']
       },
-      {
-        id: "llm",
-        name: "Mode LLM Penuh",
-        description: "Paling akurat (~95%), biaya lebih tinggi",
+      { 
+        id: 'llm', 
+        name: 'Mode LLM Penuh', 
+        description: 'Paling akurat (~95%), biaya lebih tinggi',
         requiresApiKey: true,
-        features: ["Full LLM analysis", "Complete evaluation"],
+        features: ['Full LLM analysis', 'Complete evaluation']
       },
     ],
     currentMode: config.mode,

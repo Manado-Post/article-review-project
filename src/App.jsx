@@ -35,76 +35,6 @@ Banyak warga menilai perbaikan ini seharusnya sudah dilakukan sejak tahun lalu. 
 
 Proyek ini ditargetkan rampung sebelum akhir tahun 2026 dan akan diawasi langsung oleh inspektorat daerah. Beberapa pengamat kebijakan publik menyebut alokasi ini sudah tepat sasaran.`;
 
-/* ---------------------------------------------------------
- * Small shared visual primitives
- * These replace emoji with consistent, theme-colored markers
- * so severity/type is communicated by color + label, not icons
- * that read as informal or AI-generated.
- * ------------------------------------------------------- */
-
-const Dot = ({ className = "" }) => (
-  <span
-    aria-hidden="true"
-    className={`mt-1.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${className}`}
-  />
-);
-
-const WarningGlyph = ({ className = "" }) => (
-  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
-    <path
-      d="M10 2.5 18 17H2L10 2.5Z"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M10 8v3.5"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-    />
-    <circle cx="10" cy="13.6" r="0.9" fill="currentColor" />
-  </svg>
-);
-
-const CheckGlyph = ({ className = "" }) => (
-  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
-    <path
-      d="M4 10.5 8 14.5 16 6"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ChevronGlyph = ({ className = "" }) => (
-  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
-    <path
-      d="M5.5 7.5 10 12l4.5-4.5"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const Recommendation = ({ text }) => {
-  if (!text) return null;
-  return (
-    <p className="mt-2 border-l-2 border-slate-200 pl-2 text-xs leading-5 text-slate-500">
-      <span className="font-semibold not-italic text-slate-600">Saran: </span>
-      <span className="italic">{text}</span>
-    </p>
-  );
-};
-
-/* ---------------------------------------------------------
- * Weakness ("Titik Kelemahan") styling and list
- * ------------------------------------------------------- */
-
 const weaknessStyles = {
   passive: {
     label: "Kalimat Pasif",
@@ -185,60 +115,94 @@ const SpacingIssueBox = ({ issue }) => {
           </div>
         )}
       </div>
-
-      <Recommendation text={issue.recommendation} />
+      
+      {issue.recommendation && (
+        <p className="text-xs text-slate-500 mt-2 italic">
+          💡 {toString(issue.recommendation)}
+        </p>
+      )}
     </div>
   );
 };
 
+// Special component for trailing whitespace issues
 const TrailingIssueBox = ({ issue }) => {
+  if (!issue || typeof issue !== 'object') return null;
+  
+  // Helper to safely get string values
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+  
   return (
-    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
-      <div className="flex items-center gap-2 text-xs">
-        <span className="font-semibold text-slate-600">{issue.note}</span>
-        <span className="text-slate-400">Baris {issue.line}</span>
+    <div className="border-2 border-slate-300 bg-slate-50 rounded-xl p-3 mt-2">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-slate-600 font-bold">{toString(issue.note)}</span>
+        <span className="text-xs text-slate-500">Baris {toString(issue.line)}</span>
       </div>
-
-      <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-2 font-mono text-sm">
+      
+      <div className="bg-white border border-slate-200 rounded-lg p-2 font-mono text-sm">
         <div className="flex items-end">
-          <span className="break-all text-slate-400">{issue.lineContent}</span>
-          <span className="flex-shrink-0 text-red-400">···</span>
+          <span className="text-slate-400 break-all">{toString(issue.lineContent)}</span>
+          <span className="text-red-400 flex-shrink-0">· · ·</span>
         </div>
-        <div className="mt-1 text-center text-xs text-slate-400">
-          spasi tersisa di akhir baris
-        </div>
+        <div className="text-center text-slate-400 text-xs mt-1">↑ spasi di akhir baris</div>
       </div>
-
-      <Recommendation text={issue.recommendation} />
+      
+      {issue.recommendation && (
+        <p className="text-xs text-slate-500 mt-2 italic">
+          💡 {toString(issue.recommendation)}
+        </p>
+      )}
     </div>
   );
 };
 
 const WeaknessList = ({ weaknesses, max = 5 }) => {
-  if (!weaknesses || weaknesses.length === 0) return null;
+  if (!weaknesses || !Array.isArray(weaknesses) || weaknesses.length === 0) return null;
   const display = weaknesses.slice(0, max);
-
+  
+  // Helper to safely convert value to string for display
+  const toString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+  
   return (
     <div className="mt-3 space-y-2">
       {display.map((w, i) => {
+        // Ensure w is an object with expected properties
+        if (!w || typeof w !== 'object') return null;
+        
         const style = weaknessStyles[w.type] || weaknessStyles.passive;
-
-        if (w.type === "spacing") {
+        const weakText = toString(w.text);
+        
+        // Special rendering for spacing issues (Option B)
+        if (w.type === 'spacing') {
           return (
             <div key={i} className="text-xs">
               <SpacingIssueBox issue={w} />
             </div>
           );
         }
-
-        if (w.type === "trailing") {
+        
+        // Special rendering for trailing issues
+        if (w.type === 'trailing') {
           return (
             <div key={i} className="text-xs">
               <TrailingIssueBox issue={w} />
             </div>
           );
         }
-
+        
+        // Standard rendering for other issues
         return (
           <div
             key={i}
@@ -348,129 +312,6 @@ const VerificationFlagList = ({ flags }) => {
   );
 };
 
-/* ---------------------------------------------------------
- * Category overview strip + accordion
- * Gives an "at a glance" scan of every score first (recognition
- * over recall), then lets the reader open exactly the category
- * they care about instead of scrolling through everything.
- * This also removes the old duplicated weakness list that used
- * to appear both inside each card and again in a separate
- * "Titik Kelemahan Detail" section further down the page.
- * ------------------------------------------------------- */
-
-const CategoryOverviewStrip = ({ details, activeCategory, onSelect }) => (
-  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-    {details.map((item) => {
-      const score = parseInt(item.value, 10) || 0;
-      const isActive = activeCategory === item.name;
-      const hasWeaknesses = item.weaknesses && item.weaknesses.length > 0;
-      return (
-        <button
-          key={item.name}
-          type="button"
-          onClick={() => onSelect(item.name)}
-          aria-pressed={isActive}
-          className={`rounded-2xl border p-3 text-left transition ${
-            isActive
-              ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300"
-              : "border-blue-100 bg-white hover:border-blue-200 hover:bg-blue-50/60"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-1">
-            <p className="truncate text-xs font-semibold text-blue-700">
-              {item.name}
-            </p>
-            {hasWeaknesses && (
-              <span className="flex-shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-                {item.weaknesses.length}
-              </span>
-            )}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className={`text-lg font-semibold ${scoreTextColor(score)}`}>
-              {item.value}
-            </span>
-            <div className="h-1.5 flex-1 rounded-full bg-slate-100">
-              <div
-                className={`h-1.5 rounded-full ${scoreBarColor(score)}`}
-                style={{ width: `${Math.min(Math.max(score, 0), 100)}%` }}
-              />
-            </div>
-          </div>
-        </button>
-      );
-    })}
-  </div>
-);
-
-const CategoryAccordion = ({ details, expanded, onToggle }) => (
-  <div className="divide-y divide-blue-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
-    {details.map((item) => {
-      const isOpen = expanded === item.name;
-      const score = parseInt(item.value, 10) || 0;
-      const hasWeaknesses = item.weaknesses && item.weaknesses.length > 0;
-      return (
-        <div key={item.name}>
-          <button
-            type="button"
-            onClick={() => onToggle(item.name)}
-            aria-expanded={isOpen}
-            className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition hover:bg-blue-50/40"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span
-                className={`w-10 flex-shrink-0 text-xl font-semibold ${scoreTextColor(score)}`}
-              >
-                {item.value}
-              </span>
-              <span className="truncate text-sm font-semibold text-blue-950">
-                {item.name}
-              </span>
-              {hasWeaknesses && (
-                <span className="flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-                  {item.weaknesses.length} temuan
-                </span>
-              )}
-            </div>
-            <ChevronGlyph
-              className={`h-4 w-4 flex-shrink-0 text-blue-400 transition-transform ${
-                isOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-          {isOpen && (
-            <div className="px-6 pb-6">
-              <p className="text-sm leading-6 text-slate-600">{item.text}</p>
-              {hasWeaknesses && (
-                <>
-                  <WeaknessList weaknesses={item.weaknesses} max={10} />
-                  <WeaknessLegend />
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    })}
-  </div>
-);
-
-/* ---------------------------------------------------------
- * Masthead
- * Publisher branding sits in its own thin strip above the
- * hero card: top-left is where readers automatically look for
- * "who made/owns this" (F-pattern scanning + strong left-to-right
- * reading habit in ID), it stays visually quiet so it doesn't
- * compete with the hero's headline, and it never needs to move
- * or resize once real content/results load below it.
- * ------------------------------------------------------- */
-
-const Masthead = () => (
-  <div className="mb-6 flex items-center">
-    <img src={logo} alt="Manado Post" className="h-14 w-auto sm:h-16" />
-  </div>
-);
-
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
@@ -521,13 +362,9 @@ function App() {
   };
 
   const modeOptions = [
-    { id: "local", name: "Lokal (Gratis)", desc: "~70% akurat, tanpa API" },
-    {
-      id: "hybrid",
-      name: "Hybrid (Disarankan)",
-      desc: "~85% akurat, hemat biaya",
-    },
-    { id: "llm", name: "LLM Penuh", desc: "~95% akurat, biaya lebih tinggi" },
+    { id: 'local', name: 'Lokal (Gratis)', desc: '~70% akurat, tanpa API' },
+    { id: 'hybrid', name: 'Hybrid (Disarankan)', desc: '~85% akurat, hemat biaya' },
+    { id: 'llm', name: 'LLM Penuh', desc: '~95% akurat, biaya lebih tinggi' },
   ];
 
   return (
@@ -763,14 +600,6 @@ function App() {
                 onSelect={toggleCategory}
               />
             </div>
-
-            {/* Category Accordion: detail + titik kelemahan per kategori,
-                dibuka sesuai kebutuhan alih-alih menumpuk semuanya sekaligus */}
-            <CategoryAccordion
-              details={result.details}
-              expanded={expandedCategory}
-              onToggle={toggleCategory}
-            />
 
             {/* Highlights Section */}
             {result.highlights && result.highlights.length > 0 && (

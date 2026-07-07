@@ -64,7 +64,7 @@ export const evaluateWithLLM = async (articleText, retries = 2) => {
     const last = articleText.slice(-1000);
     truncatedText = first + "\n...[middle omitted]...\n" + last;
   }
-
+  
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetch(
@@ -85,7 +85,15 @@ export const evaluateWithLLM = async (articleText, retries = 2) => {
             ],
           }),
         },
-      );
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 600,  // OPTIMIZED: reduced from 800
+          system: SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: `Artikel:\n"""\n${truncatedText}\n"""` },
+          ],
+        }),
+      });
 
       // Handle overload (529) with retry
       if (response.status === 529 || response.status === 429) {
