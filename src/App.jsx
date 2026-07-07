@@ -15,83 +15,485 @@ const badgeColor = (score) => {
   return "bg-rose-100 text-rose-700";
 };
 
+const scoreTextColor = (score) => {
+  if (score >= 80) return "text-emerald-600";
+  if (score >= 60) return "text-blue-600";
+  if (score >= 50) return "text-amber-600";
+  return "text-red-600";
+};
+
+const scoreBarColor = (score) => {
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 60) return "bg-blue-500";
+  if (score >= 50) return "bg-amber-500";
+  return "bg-red-500";
+};
+
 const sampleArticle = `Pemerintah Kota Manado resmi mengalokasikan anggaran sebesar Rp45 miliar untuk perbaikan jalan rusak di sejumlah kecamatan pada tahun anggaran 2026. Menurut Kepala Dinas PUPR Kota Manado, Ferry Lompoliu, anggaran tersebut akan difokuskan pada 32 ruas jalan yang dinilai paling rusak berdasarkan hasil survei lapangan bulan Mei lalu.
 
-Banyak warga menilai perbaikan ini seharusnya sudah dilakukan sejak tahun lalu. Sumber di lingkungan pemkot yang tidak ingin disebutkan namanya mengatakan proyek ini rawan dikorupsi.
+Banyak warga menilai perbaikan ini seharusnya sudah dilakukan sejak tahun lalu. Menurut sumber yang tidak disebutkan namanya, proyek ini rawan dikorupsi.
 
-Proyek ini ditargetkan rampung sebelum akhir tahun 2026 dan akan diawasi langsung oleh inspektorat daerah. Beberapa pengamat kebijakan publik menyebut alokasi ini sudah tepat sasaran. Jelas ini adalah langkah terbaik yang pernah diambil pemkot dalam lima tahun terakhir.`;
+Proyek ini ditargetkan rampung sebelum akhir tahun 2026 dan akan diawasi langsung oleh inspektorat daerah. Beberapa pengamat kebijakan publik menyebut alokasi ini sudah tepat sasaran.`;
+
+/* ---------------------------------------------------------
+ * Small shared visual primitives
+ * These replace emoji with consistent, theme-colored markers
+ * so severity/type is communicated by color + label, not icons
+ * that read as informal or AI-generated.
+ * ------------------------------------------------------- */
+
+const Dot = ({ className = "" }) => (
+  <span
+    aria-hidden="true"
+    className={`mt-1.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${className}`}
+  />
+);
+
+const WarningGlyph = ({ className = "" }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <path
+      d="M10 2.5 18 17H2L10 2.5Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M10 8v3.5"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+    />
+    <circle cx="10" cy="13.6" r="0.9" fill="currentColor" />
+  </svg>
+);
+
+const CheckGlyph = ({ className = "" }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <path
+      d="M4 10.5 8 14.5 16 6"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ChevronGlyph = ({ className = "" }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <path
+      d="M5.5 7.5 10 12l4.5-4.5"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const Recommendation = ({ text }) => {
+  if (!text) return null;
+  return (
+    <p className="mt-2 border-l-2 border-slate-200 pl-2 text-xs leading-5 text-slate-500">
+      <span className="font-semibold not-italic text-slate-600">Saran: </span>
+      <span className="italic">{text}</span>
+    </p>
+  );
+};
+
+/* ---------------------------------------------------------
+ * Weakness ("Titik Kelemahan") styling and list
+ * ------------------------------------------------------- */
 
 const weaknessStyles = {
-  passive: { icon: "🔴", label: "Kalimat Pasif", class: "border-l-4 border-red-400 bg-red-50" },
-  complex: { icon: "🟡", label: "Kalimat Kompleks", class: "border-l-4 border-yellow-400 bg-yellow-50" },
-  formal: { icon: "🔵", label: "Kata Formal Berulang", class: "border-l-4 border-blue-400 bg-blue-50" },
-  spacing: { icon: "⚪", label: "Spasi Ganda", class: "border-l-4 border-gray-400 bg-gray-50" },
-  trailing: { icon: "⚪", label: "Spasi Akhir Baris", class: "border-l-4 border-gray-400 bg-gray-50" },
-  linebreak: { icon: "⚪", label: "Inkonsisten Line Break", class: "border-l-4 border-gray-400 bg-gray-50" },
-  quotes: { icon: "⚪", label: "Tanda Kutip Non-standar", class: "border-l-4 border-gray-400 bg-gray-50" },
+  passive: {
+    label: "Kalimat Pasif",
+    dot: "bg-red-500",
+    class: "border-l-4 border-red-400 bg-red-50",
+  },
+  complex: {
+    label: "Kalimat Kompleks",
+    dot: "bg-amber-500",
+    class: "border-l-4 border-amber-400 bg-amber-50",
+  },
+  formal: {
+    label: "Kata Formal Berulang",
+    dot: "bg-blue-500",
+    class: "border-l-4 border-blue-400 bg-blue-50",
+  },
+  spacing: {
+    label: "Spasi Ganda",
+    dot: "bg-slate-400",
+    class: "border-l-4 border-slate-300 bg-slate-50",
+  },
+  trailing: {
+    label: "Spasi Akhir Baris",
+    dot: "bg-slate-400",
+    class: "border-l-4 border-slate-300 bg-slate-50",
+  },
+  linebreak: {
+    label: "Inkonsisten Line Break",
+    dot: "bg-slate-400",
+    class: "border-l-4 border-slate-300 bg-slate-50",
+  },
+  quotes: {
+    label: "Tanda Kutip Non-standar",
+    dot: "bg-slate-400",
+    class: "border-l-4 border-slate-300 bg-slate-50",
+  },
 };
 
 const WeaknessLegend = () => (
-  <div className="flex flex-wrap gap-3 text-xs text-slate-500 mt-2">
+  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
     {Object.entries(weaknessStyles).map(([key, val]) => (
-      <span key={key} className="flex items-center gap-1">
-        <span>{val.icon}</span>
+      <span key={key} className="flex items-center gap-1.5">
+        <Dot className={val.dot} />
         {val.label}
       </span>
     ))}
   </div>
 );
 
+// Spacing issue: shows the exact before/after text with the extra
+// whitespace made visible, so the writer can see precisely what to fix.
+const SpacingIssueBox = ({ issue }) => {
+  const spaceDisplay = "·".repeat(issue.spaceCount);
+
+  return (
+    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-xs font-semibold text-slate-600">{issue.note}</p>
+
+      <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-3 font-mono text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-1 text-xs">
+          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">
+            {issue.before}
+          </span>
+          <span className="rounded border border-red-300 bg-red-100 px-2 py-0.5 font-bold text-red-700">
+            {spaceDisplay}
+          </span>
+          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">
+            {issue.after}
+          </span>
+        </div>
+
+        {issue.context && (
+          <div className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-500">
+            <span className="font-semibold text-slate-400">Konteks</span>
+            <pre className="mt-1 whitespace-pre-wrap break-all font-sans text-slate-600">
+              {issue.context}
+            </pre>
+          </div>
+        )}
+      </div>
+
+      <Recommendation text={issue.recommendation} />
+    </div>
+  );
+};
+
+const TrailingIssueBox = ({ issue }) => {
+  return (
+    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-semibold text-slate-600">{issue.note}</span>
+        <span className="text-slate-400">Baris {issue.line}</span>
+      </div>
+
+      <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-2 font-mono text-sm">
+        <div className="flex items-end">
+          <span className="break-all text-slate-400">{issue.lineContent}</span>
+          <span className="flex-shrink-0 text-red-400">···</span>
+        </div>
+        <div className="mt-1 text-center text-xs text-slate-400">
+          spasi tersisa di akhir baris
+        </div>
+      </div>
+
+      <Recommendation text={issue.recommendation} />
+    </div>
+  );
+};
+
 const WeaknessList = ({ weaknesses, max = 5 }) => {
   if (!weaknesses || weaknesses.length === 0) return null;
   const display = weaknesses.slice(0, max);
-  
+
   return (
     <div className="mt-3 space-y-2">
       {display.map((w, i) => {
         const style = weaknessStyles[w.type] || weaknessStyles.passive;
+
+        if (w.type === "spacing") {
+          return (
+            <div key={i} className="text-xs">
+              <SpacingIssueBox issue={w} />
+            </div>
+          );
+        }
+
+        if (w.type === "trailing") {
+          return (
+            <div key={i} className="text-xs">
+              <TrailingIssueBox issue={w} />
+            </div>
+          );
+        }
+
         return (
-          <div key={i} className={`flex items-start gap-2 p-2 rounded-lg text-xs ${style.class}`}>
-            <span className="mt-0.5">{style.icon}</span>
-            <div>
+          <div
+            key={i}
+            className={`flex items-start gap-2.5 rounded-lg p-2.5 text-xs ${style.class}`}
+          >
+            <Dot className={style.dot} />
+            <div className="min-w-0">
               <p className="font-medium text-slate-700">
-                {w.passiveWord && <span className="text-red-600 font-bold">"{w.passiveWord}"</span>}
+                {w.passiveWord && (
+                  <span className="font-semibold text-red-700">
+                    &ldquo;{w.passiveWord}&rdquo;
+                  </span>
+                )}
                 {w.wordCount && <span>Kalimat {w.wordCount} kata</span>}
-                {w.count && <span>"{w.text}" {w.count}x</span>}
-                {w.type === 'spacing' || w.type === 'trailing' || w.type === 'linebreak' || w.type === 'quotes' ? <span>{w.note || "Masalah teknis"}</span> : null}
+                {w.count && (
+                  <span>
+                    &ldquo;{w.text}&rdquo; &middot; {w.count}x
+                  </span>
+                )}
+                {(w.type === "linebreak" || w.type === "quotes") && (
+                  <span>{w.note || "Masalah teknis"}</span>
+                )}
               </p>
-              {w.text && w.type !== 'spacing' && w.type !== 'formal' && (
-                <p className="text-slate-500 mt-0.5">{w.text.slice(0, 120)}...</p>
+              {w.text && w.type !== "formal" && (
+                <p className="mt-1 text-slate-500">{w.text.slice(0, 120)}...</p>
               )}
-              {w.note && <p className="text-slate-500 mt-0.5">{w.note}</p>}
+              <Recommendation text={w.recommendation} />
             </div>
           </div>
         );
       })}
       {weaknesses.length > max && (
-        <p className="text-xs text-slate-400">...dan {weaknesses.length - max} lainnya</p>
+        <p className="text-xs text-slate-400">
+          dan {weaknesses.length - max} temuan lainnya
+        </p>
       )}
     </div>
   );
 };
 
+/* ---------------------------------------------------------
+ * Verification flags
+ * ------------------------------------------------------- */
+
+const flagStyles = {
+  high: {
+    label: "Prioritas Tinggi",
+    dot: "bg-red-500",
+    class: "border-l-4 border-red-500 bg-red-50",
+  },
+  medium: {
+    label: "Prioritas Sedang",
+    dot: "bg-amber-500",
+    class: "border-l-4 border-amber-500 bg-amber-50",
+  },
+  low: {
+    label: "Prioritas Rendah",
+    dot: "bg-blue-500",
+    class: "border-l-4 border-blue-500 bg-blue-50",
+  },
+};
+
+const VerificationFlagList = ({ flags }) => {
+  if (!flags || flags.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {flags.map((flag, idx) => {
+        const style = flagStyles[flag.priority] || flagStyles.medium;
+        return (
+          <div
+            key={idx}
+            className={`flex items-start gap-3 rounded-xl p-3 text-sm ${style.class}`}
+          >
+            <Dot className={`${style.dot} mt-2`} />
+            <div className="min-w-0 flex-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {style.label}
+              </span>
+              <p className="mt-1 text-slate-700">
+                {flag.text && <span>&ldquo;{flag.text}&rdquo; </span>}
+                {flag.attributedTo && (
+                  <span className="text-slate-500">
+                    &mdash; {flag.attributedTo}
+                  </span>
+                )}
+                {flag.context && !flag.text && (
+                  <span>{flag.context.slice(0, 100)}</span>
+                )}
+                {flag.keyword && (
+                  <span className="font-semibold text-red-700">
+                    &ldquo;{flag.keyword}&rdquo;
+                  </span>
+                )}
+                {flag.subject && <span>{flag.subject}</span>}
+              </p>
+              <Recommendation text={flag.recommendation} />
+              <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+                <input type="checkbox" className="rounded" />
+                <span>Sudah diverifikasi</span>
+              </label>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/* ---------------------------------------------------------
+ * Category overview strip + accordion
+ * Gives an "at a glance" scan of every score first (recognition
+ * over recall), then lets the reader open exactly the category
+ * they care about instead of scrolling through everything.
+ * This also removes the old duplicated weakness list that used
+ * to appear both inside each card and again in a separate
+ * "Titik Kelemahan Detail" section further down the page.
+ * ------------------------------------------------------- */
+
+const CategoryOverviewStrip = ({ details, activeCategory, onSelect }) => (
+  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+    {details.map((item) => {
+      const score = parseInt(item.value, 10) || 0;
+      const isActive = activeCategory === item.name;
+      const hasWeaknesses = item.weaknesses && item.weaknesses.length > 0;
+      return (
+        <button
+          key={item.name}
+          type="button"
+          onClick={() => onSelect(item.name)}
+          aria-pressed={isActive}
+          className={`rounded-2xl border p-3 text-left transition ${
+            isActive
+              ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300"
+              : "border-blue-100 bg-white hover:border-blue-200 hover:bg-blue-50/60"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="truncate text-xs font-semibold text-blue-700">
+              {item.name}
+            </p>
+            {hasWeaknesses && (
+              <span className="flex-shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                {item.weaknesses.length}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className={`text-lg font-semibold ${scoreTextColor(score)}`}>
+              {item.value}
+            </span>
+            <div className="h-1.5 flex-1 rounded-full bg-slate-100">
+              <div
+                className={`h-1.5 rounded-full ${scoreBarColor(score)}`}
+                style={{ width: `${Math.min(Math.max(score, 0), 100)}%` }}
+              />
+            </div>
+          </div>
+        </button>
+      );
+    })}
+  </div>
+);
+
+const CategoryAccordion = ({ details, expanded, onToggle }) => (
+  <div className="divide-y divide-blue-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
+    {details.map((item) => {
+      const isOpen = expanded === item.name;
+      const score = parseInt(item.value, 10) || 0;
+      const hasWeaknesses = item.weaknesses && item.weaknesses.length > 0;
+      return (
+        <div key={item.name}>
+          <button
+            type="button"
+            onClick={() => onToggle(item.name)}
+            aria-expanded={isOpen}
+            className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition hover:bg-blue-50/40"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className={`w-10 flex-shrink-0 text-xl font-semibold ${scoreTextColor(score)}`}
+              >
+                {item.value}
+              </span>
+              <span className="truncate text-sm font-semibold text-blue-950">
+                {item.name}
+              </span>
+              {hasWeaknesses && (
+                <span className="flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                  {item.weaknesses.length} temuan
+                </span>
+              )}
+            </div>
+            <ChevronGlyph
+              className={`h-4 w-4 flex-shrink-0 text-blue-400 transition-transform ${
+                isOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {isOpen && (
+            <div className="px-6 pb-6">
+              <p className="text-sm leading-6 text-slate-600">{item.text}</p>
+              {hasWeaknesses && (
+                <>
+                  <WeaknessList weaknesses={item.weaknesses} max={10} />
+                  <WeaknessLegend />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+);
+
+/* ---------------------------------------------------------
+ * Masthead
+ * Publisher branding sits in its own thin strip above the
+ * hero card: top-left is where readers automatically look for
+ * "who made/owns this" (F-pattern scanning + strong left-to-right
+ * reading habit in ID), it stays visually quiet so it doesn't
+ * compete with the hero's headline, and it never needs to move
+ * or resize once real content/results load below it.
+ * ------------------------------------------------------- */
+
+const Masthead = () => (
+  <div className="mb-6 flex items-center">
+    <img src={logo} alt="Manado Post" className="h-14 w-auto sm:h-16" />
+  </div>
+);
+
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
   const [activeTab, setActiveTab] = useState("paste");
+  const [mode, setMode] = useState("hybrid");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   const words = useMemo(
     () => text.trim().split(/\s+/).filter(Boolean).length,
     [text],
   );
 
+  const toggleCategory = (name) =>
+    setExpandedCategory((prev) => (prev === name ? null : name));
+
   const analyze = async () => {
     setError("");
     setLoading(true);
     setResult(null);
+    setExpandedCategory(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -100,6 +502,7 @@ function App() {
         body: JSON.stringify({
           text: activeTab === "url" ? "" : text,
           url: activeTab === "url" ? url : "",
+          mode: mode,
         }),
       });
 
@@ -117,14 +520,21 @@ function App() {
     }
   };
 
+  const modeOptions = [
+    { id: "local", name: "Lokal (Gratis)", desc: "~70% akurat, tanpa API" },
+    {
+      id: "hybrid",
+      name: "Hybrid (Disarankan)",
+      desc: "~85% akurat, hemat biaya",
+    },
+    { id: "llm", name: "LLM Penuh", desc: "~95% akurat, biaya lebih tinggi" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 text-blue-950">
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 lg:px-10">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="logo" className="h-20 w-auto object-contain" />
-          </div>
-        </div>
+        <Masthead />
+
         <div className="mb-8 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200/80">
           <div className="mb-6 max-w-3xl">
             <p className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
@@ -135,11 +545,42 @@ function App() {
             </h1>
             <p className="mt-3 text-base leading-7 text-slate-600">
               Tempel teks artikel atau masukkan tautan. Tidak ada login, tidak
-              ada dashboard yang rumit — langsung analisis.
+              ada dashboard yang rumit &mdash; langsung analisis.
             </p>
           </div>
 
-          <div className="mb-6 flex gap-2 rounded-2xl bg-blue-50 p-1 text-sm font-semibold text-blue-700 w-fit">
+          {/* Mode Selector */}
+          <div className="mb-6 rounded-2xl bg-slate-50 p-4">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Mode Analisis
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {modeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setMode(opt.id)}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    mode === opt.id
+                      ? "bg-blue-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-blue-50"
+                  }`}
+                >
+                  {opt.name}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {modeOptions.find((m) => m.id === mode)?.desc}
+              {mode !== "local" && (
+                <span className="ml-2 text-amber-600">
+                  Membutuhkan API key Olagon
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div className="mb-6 flex w-fit gap-2 rounded-2xl bg-blue-50 p-1 text-sm font-semibold text-blue-700">
             <button
               type="button"
               className={`rounded-2xl px-4 py-2 transition ${activeTab === "paste" ? "bg-blue-900 text-white" : "hover:bg-blue-100"}`}
@@ -176,9 +617,7 @@ function App() {
                   <div className="text-4xl font-semibold text-blue-950">
                     {words}
                   </div>
-                  <div className="text-sm text-slate-500">
-                    Jumlah kata
-                  </div>
+                  <div className="text-sm text-slate-500">Jumlah kata</div>
                 </div>
               </div>
 
@@ -238,19 +677,31 @@ function App() {
 
         {result && (
           <section className="space-y-6">
+            {/* Result Header */}
             <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
-                    Hasil Analisis
-                  </p>
+                  <div className="mb-2 flex items-center gap-2">
+                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
+                      Hasil Analisis
+                    </p>
+                    {result.skippedLLM && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                        Mode Lokal
+                      </span>
+                    )}
+                    {result.fromCache && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                        Cache
+                      </span>
+                    )}
+                  </div>
                   <h2 className="mt-3 text-3xl font-semibold text-blue-950">
                     Skor artikel: {result.overallScore}
                   </h2>
                   {result.sourceDomain && (
                     <p className="mt-1 text-sm text-slate-500">
                       Sumber: {result.sourceDomain}
-                      {result.fromCache && " (dari cache)"}
                     </p>
                   )}
                   <p className="mt-2 max-w-2xl text-slate-600">
@@ -265,56 +716,79 @@ function App() {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {result.details.map((item) => (
-                <article
-                  key={item.name}
-                  className={`rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200 ${item.name.includes("Bahasa") || item.name.includes("Teknis") ? "ring-2" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-semibold text-blue-700">{item.name}</p>
-                    <span className="text-2xl font-semibold text-blue-950">{item.value}</span>
+            {/* Verification Flags Section */}
+            {result.verificationFlags &&
+              result.verificationFlags.length > 0 && (
+                <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-8">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <WarningGlyph className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-amber-900">
+                          Perlu Verifikasi Manual
+                        </h3>
+                        <p className="mt-0.5 text-sm text-amber-700">
+                          {result.verificationFlags.length} item memerlukan
+                          perhatian sebelum dipublikasikan
+                        </p>
+                      </div>
+                    </div>
+                    <span className="flex-shrink-0 rounded-full bg-amber-200 px-3 py-1 text-sm font-semibold text-amber-800">
+                      {result.verificationFlags.length}
+                    </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
-                  
-                  {(item.name === "Bahasa & Gaya" || item.name === "Pemeriksaan Teknis") && (
-                    <WeaknessList weaknesses={item.weaknesses} />
-                  )}
-                </article>
-              ))}
+                  <VerificationFlagList flags={result.verificationFlags} />
+                  <div className="mt-4 border-t border-amber-200 pt-4">
+                    <button className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 hover:text-amber-950">
+                      <CheckGlyph className="h-4 w-4" />
+                      Tandai semua terverifikasi
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {/* Category Overview Strip: skor semua kategori sekilas pandang */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-500">
+                  Skor per Kategori
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Klik kategori untuk detail lengkap
+                </p>
+              </div>
+              <CategoryOverviewStrip
+                details={result.details}
+                activeCategory={expandedCategory}
+                onSelect={toggleCategory}
+              />
             </div>
 
-            {result.details.some(d => d.weaknesses?.length > 0) && (
-              <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-blue-950">
-                    Titik Kelemahan Detail
-                  </h3>
-                  <WeaknessLegend />
-                </div>
-                <div className="mt-4 space-y-3">
-                  {result.details.filter(d => d.weaknesses?.length > 0).map(d => (
-                    <div key={d.name}>
-                      <p className="text-sm font-semibold text-slate-700 mb-2">
-                        {d.name} ({d.weaknesses.length} temuan)
-                      </p>
-                      <WeaknessList weaknesses={d.weaknesses} max={10} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Category Accordion: detail + titik kelemahan per kategori,
+                dibuka sesuai kebutuhan alih-alih menumpuk semuanya sekaligus */}
+            <CategoryAccordion
+              details={result.details}
+              expanded={expandedCategory}
+              onToggle={toggleCategory}
+            />
 
-            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
-              <h3 className="text-xl font-semibold text-blue-950">
-                Sorotan kalimat
-              </h3>
-              <div className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
-                {result.highlights && result.highlights.length > 0 ? (
-                  result.highlights.map((item, idx) => (
+            {/* Highlights Section */}
+            {result.highlights && result.highlights.length > 0 && (
+              <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
+                <h3 className="text-xl font-semibold text-blue-950">
+                  Sorotan Kalimat
+                </h3>
+                <div className="mt-6 grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
+                  {result.highlights.map((item, idx) => (
                     <div
                       key={idx}
-                      className={`rounded-3xl border p-4 ${item.type === "bad" ? "border-rose-200 bg-rose-50" : item.type === "warn" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}
+                      className={`rounded-3xl border p-4 ${
+                        item.type === "bad"
+                          ? "border-rose-200 bg-rose-50"
+                          : item.type === "warn"
+                            ? "border-amber-200 bg-amber-50"
+                            : "border-emerald-200 bg-emerald-50"
+                      }`}
                     >
                       <p className="font-semibold text-blue-950">
                         {item.type === "bad"
@@ -325,15 +799,15 @@ function App() {
                       </p>
                       <p className="mt-2 text-slate-700">{item.text}</p>
                       {item.note && (
-                        <p className="mt-2 text-sm text-slate-500">{item.note}</p>
+                        <p className="mt-2 text-sm text-slate-500">
+                          {item.note}
+                        </p>
                       )}
                     </div>
-                  ))
-                ) : (
-                  <p className="text-slate-500">Tidak ada sorotan khusus.</p>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </section>
         )}
       </main>
