@@ -197,21 +197,106 @@ router.post("/analyze", async (req, res) => {
           name: "Konten & Sumber", 
           value: String(llmResult.konten.score), 
           text: llmResult.konten.note,
+          notes: llmResult.konten.notes || [],
           strengths: llmResult.konten.strengths || [],
-          weaknesses: llmResult.konten.weaknesses || []
+          weaknesses: llmResult.konten.weaknesses || [],
+          meta: {
+            newsValueScore: konten.meta?.newsValueScore,
+            originalityScore: konten.meta?.originalityScore,
+            sumberScore: konten.meta?.sumberScore,
+            quoteCount: konten.meta?.quoteCount,
+          }
         },
-        { name: "Struktur/Format", value: String(struktur.score), text: struktur.notes.join(" ") },
-        { name: "Bahasa & Gaya", value: String(bahasaHeuristik.score), text: bahasaHeuristik.notes.join(" "), weaknesses: bahasaHeuristik.weaknesses || [] },
+        { 
+          name: "Struktur/Format", 
+          value: String(struktur.score), 
+          text: struktur.notes?.join(' ') || '',
+          notes: struktur.notes || [],
+          strengths: struktur.strengths || [],
+          weaknesses: struktur.weaknesses || [],
+          meta: {
+            leadWords: struktur.meta?.leadWords,
+            headingCount: struktur.meta?.headingCount,
+            headlineWords: struktur.meta?.headlineWords,
+            headlineIsActive: struktur.meta?.headlineIsActive,
+            has5W1H: struktur.meta?.has5W1H,
+            w1hCount: struktur.meta?.w1hElements?.count,
+            pyramidScore: struktur.meta?.pyramidScore,
+            nutGraf: struktur.meta?.nutGraf,
+          }
+        },
+        { 
+          name: "Bahasa & Gaya", 
+          value: String(bahasaHeuristik.score), 
+          text: bahasaHeuristik.notes?.join(' ') || '',
+          notes: bahasaHeuristik.notes || [],
+          strengths: bahasaHeuristik.strengths || [],
+          weaknesses: bahasaHeuristik.weaknesses || [],
+          meta: {
+            readability: bahasaHeuristik.meta?.readability,
+            passiveRatio: bahasaHeuristik.meta?.passiveRatio,
+            puebiScore: bahasaHeuristik.meta?.puebiScore,
+            toneScore: bahasaHeuristik.meta?.toneScore,
+          }
+        },
         { 
           name: "Etika & Legalitas", 
           value: String(llmResult.etika.score), 
           text: llmResult.etika.note,
+          notes: llmResult.etika.notes || [],
           strengths: llmResult.etika.strengths || [],
-          weaknesses: llmResult.etika.weaknesses || []
+          weaknesses: llmResult.etika.weaknesses || [],
+          meta: {
+            defamationRisk: etika.meta?.defamationRisk,
+            perspectiveBalance: etika.meta?.perspectiveBalance,
+            privacyRisks: etika.meta?.privacyRisks,
+          }
         },
-        { name: "SEO & Audiens", value: String(seo.score), text: seo.notes.join(" ") },
-        { name: "Pemeriksaan Teknis", value: String(teknis.score), text: teknis.notes.join(" "), weaknesses: teknis.weaknesses || [] },
-        { name: "Mesin-Baca (AI-SEO)", value: String(machineReadability.score), text: machineReadability.notes.join(" ") || "Skor keterbacaan untuk mesin (Google AI, LLM)" },
+        { 
+          name: "SEO & Audiens", 
+          value: String(seo.score), 
+          text: seo.notes?.join(' ') || '',
+          notes: seo.notes || [],
+          strengths: seo.strengths || [],
+          weaknesses: seo.weaknesses || [],
+          meta: {
+            wordCount: seo.meta?.wordCount,
+            factCount: seo.meta?.factCount,
+            keywordDensity: seo.meta?.keywordDensity,
+            internalLinkCount: seo.meta?.internalLinkCount,
+            externalLinkCount: seo.meta?.externalLinkCount,
+            clickWorthyScore: seo.meta?.clickWorthyScore,
+            isShortArticle: seo.meta?.isShortArticle,
+          }
+        },
+        { 
+          name: "Pemeriksaan Teknis", 
+          value: String(teknis.score), 
+          text: teknis.notes?.join(' ') || '',
+          notes: teknis.notes || [],
+          strengths: teknis.strengths || [],
+          weaknesses: teknis.weaknesses || [],
+          meta: {
+            doubleSpaces: teknis.meta?.doubleSpaces,
+            trailingSpaces: teknis.meta?.trailingSpaces,
+            headingScore: teknis.meta?.headingScore,
+            plagiarismScore: teknis.meta?.plagiarismScore,
+            imageCount: teknis.meta?.imageCount,
+          }
+        },
+        { 
+          name: "Mesin-Baca (AI-SEO)", 
+          value: String(machineReadability.score), 
+          text: machineReadability.notes?.join(' ') || 'Skor keterbacaan untuk mesin (Google AI, LLM)',
+          notes: machineReadability.notes || [],
+          meta: {
+            leadScore: machineReadability.meta?.leadScore,
+            headingScore: machineReadability.meta?.headingScore,
+            sectionScore: machineReadability.meta?.sectionScore,
+            factDensityScore: machineReadability.meta?.factDensityScore,
+            attributionScore: machineReadability.meta?.attributionScore,
+          }
+        },
       ],
       highlights: Array.isArray(llmResult.highlights) ? llmResult.highlights : [],
       verificationFlags: Array.isArray(verificationFlags.flags) ? verificationFlags.flags : [],

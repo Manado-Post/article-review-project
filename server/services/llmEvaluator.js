@@ -78,22 +78,14 @@ export const evaluateWithLLM = async (articleText, retries = 2) => {
           },
           body: JSON.stringify({
             model: "claude-sonnet-5",
-            max_tokens: 600, // OPTIMIZED: reduced from 800
+            max_tokens: 600,
             system: SYSTEM_PROMPT,
             messages: [
               { role: "user", content: `Artikel:\n"""\n${truncatedText}\n"""` },
             ],
           }),
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-5",
-          max_tokens: 600,  // OPTIMIZED: reduced from 800
-          system: SYSTEM_PROMPT,
-          messages: [
-            { role: "user", content: `Artikel:\n"""\n${truncatedText}\n"""` },
-          ],
-        }),
-      });
+        }
+      );
 
       // Handle overload (529) with retry
       if (response.status === 529 || response.status === 429) {

@@ -454,6 +454,71 @@ MODE=hybrid                # Default mode: local|hybrid|llm
 
 ---
 
+## URL Scraping Mechanism
+
+Sistem dapat menerima input berupa URL artikel, mengekstrak konten secara otomatis tanpa JavaScript rendering (server-side, cepat).
+
+### Alur Scraping
+
+```mermaid
+flowchart TB
+    A["Input URL"] --> B{"Valid URL?"}
+    B -->|Tidak| C["Error: URL tidak valid"]
+    B -->|Ya| D["Fetch main URL"]
+    D --> E{"Konten ≥100 karakter?"}
+    E -->|Ya| F["✅ Ekstraksi berhasil"]
+    E -->|Tidak| G{"AMP URL tersedia?"}
+    G -->|Ya| H["Fetch /amp/ URL"]
+    H --> I{"Konten ≥100 karakter?"}
+    I -->|Ya| F
+    I -->|Tidak| J["Fallback: OG Description"]
+    G -->|Tidak| J
+    J --> K{"OG Desc ≥50 karakter?"}
+    K -->|Ya| L["✅ Cuplikan artikel"]
+    K -->|Tidak| M["❌ Gagal mengekstrak"]
+```
+
+### Proses Ekstraksi
+
+| Langkah | Metode | Deskripsi |
+|---------|--------|-----------|
+| **1** | Fetch HTML | Ambil HTML dari URL dengan User-Agent Chrome dan timeout 15 detik |
+| **2** | Parse + Clean | Gunakan `cheerio` untuk parsing, buang elemen non-artikel (script, nav, ads, sidebar, dll) |
+| **3** | AMP Selectors | Coba selector spesifik AMP: `article.content`, `.amp-content`, `.story-body` |
+| **4** | Standard Selectors | Coba selector umum: `article`, `.article-body`, `.post-content`, `main`, `#content` |
+| **5** | Fallback | Ambil semua `<p>` dari body jika masih <200 karakter |
+| **6** | AMP Fallback | Jika konten <100 karakter, coba `/amp/` URL (untuk SPA/Inertia.js sites) |
+| **7** | OG Fallback | Jika masih gagal, ambil `og:description` sebagai cuplikan |
+
+### AMP Support
+
+Situs berita Indonesia menggunakan JavaScript framework (SPA/Inertia.js) yang sering menyembunyikan konten dari scraper server-side. AMP pages menyediakan HTML statis yang lebih mudah di-parse.
+
+**Situs yang didukung AMP fallback:**
+
+| Domain | Contoh URL | AMP URL |
+|--------|-----------|---------|
+| `jawapos.com` | `/politik/artikel` | `/amp/politik/artikel` |
+| `detik.com` | `/berita/artikel` | `/amp/berita/artikel` |
+| `kompas.com` | `/read/artikel` | `/amp/read/artikel` |
+| `tribunnews.com` | `/regional/artikel` | `/amp/regional/artikel` |
+| `sindonews.com` | `/topic/artikel` | `/amp/topic/artikel` |
+| `republika.co.id` | `/rubrik/artikel` | `/amp/rubrik/artikel` |
+| `merdeka.com` | `/peristiwa/artikel` | `/amp/peristiwa/artikel` |
+| `cnnindonesia.com` | `/nasional/artikel` | `/amp/nasional/artikel` |
+| `jpnn.com` | `/news/artikel` | `/amp/news/artikel` |
+
+### Default Sample Article
+
+Jika tidak ada input teks atau URL, frontend menyediakan artikel sampel untuk pengujian cepat:
+
+```
+Pemerintah Kota Manado resmi mengalokasikan anggaran sebesar Rp45 miliar
+untuk perbaikan jalan rusak di sejumlah kecamatan pada tahun anggaran 2026...
+```
+
+---
+
 ## API Response Structure
 
 ```javascript

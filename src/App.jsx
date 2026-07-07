@@ -1,6 +1,118 @@
 import { useMemo, useState } from "react";
 import logo from "./assets/logo.webp";
 
+// ============================================
+// MISSING UI COMPONENTS
+// ============================================
+
+// Masthead with logo and title
+const Masthead = () => (
+  <header className="mb-8 flex items-center gap-4">
+    <img src={logo} alt="Logo" className="h-15 w-52 rounded-xl object-contain" />
+    <div>
+      <h2 className="text-lg font-semibold text-blue-950">Article Quality Analyzer</h2>
+
+    </div>
+  </header>
+);
+
+// Simple colored dot
+const Dot = ({ className }) => (
+  <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${className}`} />
+);
+
+// Warning icon (SVG)
+const WarningGlyph = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+  </svg>
+);
+
+// Check icon (SVG)
+const CheckGlyph = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+// Chevron icon for expandable
+const ChevronIcon = ({ expanded }) => (
+  <svg 
+    className={`h-5 w-5 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+// Recommendation text helper
+const Recommendation = ({ text }) => {
+  if (!text) return null;
+  return (
+    <p className="text-xs text-slate-500 mt-1 italic">
+      {text}
+    </p>
+  );
+};
+
+// Category score card component
+const ScoreCard = ({ category, isActive, onClick, score }) => {
+  const scoreColor = score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-blue-600' : score >= 50 ? 'text-amber-600' : 'text-red-600';
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-all ${
+        isActive 
+          ? 'bg-blue-900 text-white shadow-md' 
+          : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+      }`}
+    >
+      <span className={`text-2xl font-bold ${isActive ? 'text-white' : scoreColor}`}>
+        {score}
+      </span>
+      <span className="flex-1 text-sm font-medium">{category}</span>
+      <ChevronIcon expanded={isActive} />
+    </button>
+  );
+};
+
+// Category overview strip with expandable panels
+const CategoryOverviewStrip = ({ details, activeCategory, onSelect }) => {
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {details?.map((category) => (
+          <ScoreCard
+            key={category.name}
+            category={category.name}
+            score={parseInt(category.value) || 0}
+            isActive={activeCategory === category.name}
+            onClick={() => onSelect(category.name)}
+          />
+        ))}
+      </div>
+      
+      {/* Expanded detail panel */}
+      {details?.map((category) => (
+        <CategoryDetail
+          key={`detail-${category.name}`}
+          category={category.name}
+          details={category}
+          isExpanded={activeCategory === category.name}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
 const verdictFromScore = (score) => {
   if (score >= 85) return "Excellent";
   if (score >= 70) return "Good";
@@ -73,6 +185,39 @@ const weaknessStyles = {
   },
 };
 
+// Weakness styles for Struktur/Format
+const strukturWeaknessStyles = {
+  'lead-long': { label: "Lead Terlalu Panjang", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'lead-short': { label: "Lead Terlalu Pendek", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'heading-missing': { label: "Subjudul Kurang", dot: "bg-red-500", class: "border-l-4 border-red-400 bg-red-50" },
+  'no-attribution': { label: "Tanpa Atribusi", dot: "bg-red-500", class: "border-l-4 border-red-400 bg-red-50" },
+  '5w1h-incomplete': { label: "5W1H Tidak Lengkap", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'pyramid-weak': { label: "Piramida Terbalik Lemah", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'closing-issue': { label: "Masalah Penutup", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'paragraph-count': { label: "Paragraf Kurang", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'headline-long': { label: "Judul Terlalu Panjang", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'headline-passive': { label: "Judul Kurang Aktif", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+};
+
+// Weakness styles for SEO & Audiens
+const seoWeaknessStyles = {
+  'word-count-low': { label: "Jumlah Kata Kurang", dot: "bg-red-500", class: "border-l-4 border-red-400 bg-red-50" },
+  'keyword-low': { label: "Keyword Density Rendah", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'keyword-high': { label: "Keyword Stuffing", dot: "bg-red-500", class: "border-l-4 border-red-400 bg-red-50" },
+  'no-internal-links': { label: "Tanpa Tautan Internal", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'fact-density-low': { label: "Fact Density Rendah", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'dead-paragraph': { label: "Paragraf Mati", dot: "bg-red-500", class: "border-l-4 border-red-400 bg-red-50" },
+  'click-not-worthy': { label: "Judul Kurang Menarik", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+  'meta-quality-low': { label: "Lead Kurang Optimal", dot: "bg-amber-500", class: "border-l-4 border-amber-400 bg-amber-50" },
+};
+
+// Risk styles for Etika & Legalitas
+const riskStyles = {
+  high: { label: "Prioritas Tinggi", dot: "bg-red-500", class: "border-l-4 border-red-500 bg-red-100" },
+  medium: { label: "Prioritas Sedang", dot: "bg-amber-500", class: "border-l-4 border-amber-500 bg-amber-50" },
+  low: { label: "Prioritas Rendah", dot: "bg-blue-500", class: "border-l-4 border-blue-500 bg-blue-50" },
+};
+
 const WeaknessLegend = () => (
   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
     {Object.entries(weaknessStyles).map(([key, val]) => (
@@ -83,6 +228,293 @@ const WeaknessLegend = () => (
     ))}
   </div>
 );
+
+// ============================================
+// ENHANCED WEAKNESS DISPLAY COMPONENTS
+// ============================================
+
+// Generic weakness box with styling
+const WeaknessBox = ({ type, label, content, recommendation, style }) => (
+  <div className={`rounded-xl p-3 mb-2 ${style?.class || 'border border-slate-200 bg-slate-50'}`}>
+    <div className="flex items-start gap-2">
+      <Dot className={style?.dot || 'bg-slate-400'} />
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-slate-700">{label}</p>
+        {content && <p className="text-xs text-slate-600 mt-1">{content}</p>}
+        {recommendation && (
+          <p className="text-xs text-slate-500 mt-1 italic">Rekomendasi: {recommendation}</p>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// Collapsible weakness list
+const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (!weaknesses || weaknesses.length === 0) return null;
+  
+  const visibleWeaknesses = expanded ? weaknesses : weaknesses.slice(0, maxVisible);
+  const hasMore = weaknesses.length > maxVisible;
+  
+  // Determine which style map to use based on first weakness type
+  const firstType = weaknesses[0]?.type || '';
+  let styleMap;
+  if (firstType === 'spacing' || firstType === 'trailing' || firstType === 'linebreak' || firstType === 'quotes') {
+    styleMap = weaknessStyles;
+  } else if (weaknesses[0]?.type === 'passive' || weaknesses[0]?.type === 'complex' || weaknesses[0]?.type === 'formal') {
+    styleMap = weaknessStyles;
+  } else {
+    // Assume simple string weaknesses or unknown type - use generic
+    styleMap = { default: { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' } };
+  }
+  
+  return (
+    <div>
+      {title && <h4 className="text-sm font-semibold text-slate-600 mb-2">{title}</h4>}
+      <div className="space-y-2">
+        {visibleWeaknesses.map((w, i) => {
+          // Special rendering for spacing issues
+          if (w.type === 'spacing' && w.spaceCount) {
+            return (
+              <div key={i} className="text-xs">
+                <SpacingIssueBox issue={w} />
+              </div>
+            );
+          }
+          
+          // Special rendering for trailing issues
+          if (w.type === 'trailing') {
+            return (
+              <div key={i} className="text-xs">
+                <TrailingIssueBox issue={w} />
+              </div>
+            );
+          }
+          
+          // Determine style based on weakness type
+          let style = styleMap[w.type] || styleMap.default || { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' };
+          let label = '';
+          let content = '';
+          let recommendation = '';
+          
+          if (typeof w === 'string') {
+            label = w;
+          } else if (w.type && styleMap[w.type]) {
+            label = styleMap[w.type].label;
+            content = w.note || w.text || w.context || '';
+            recommendation = w.recommendation || '';
+          } else {
+            label = w.note || w.text || w.label || '';
+            if (!label) label = JSON.stringify(w);
+            content = w.context || '';
+          }
+          
+          // For passive/complex/formal, include highlighted text
+          if (w.passiveWord) {
+            content = `Kalimat pasif: "${w.passiveWord}"`;
+            if (w.text) content += ' - "' + w.text.slice(0, 100) + '..."';
+          } else if (w.wordCount) {
+            content = `Kalimat ${w.wordCount} kata (ideal ≤25)`;
+          } else if (w.count) {
+            content = `Muncul ${w.count}x dalam teks`;
+          }
+          
+          return (
+            <WeaknessBox
+              key={i}
+              type={w.type}
+              label={label}
+              content={content}
+              recommendation={recommendation}
+              style={style}
+            />
+          );
+        })}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {expanded ? 'Sembunyikan' : `Tampilkan ${weaknesses.length - maxVisible} lainnya`}
+        </button>
+      )}
+    </div>
+  );
+};
+
+// Risks section for Etika & Legalitas
+const RisksSection = ({ risks }) => {
+  if (!risks || risks.length === 0) return null;
+  
+  // Sort by priority: high first
+  const sortedRisks = [...risks].sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 };
+    return (order[a.priority] || 1) - (order[b.priority] || 1);
+  });
+  
+  return (
+    <div className="mb-4">
+      <h4 className="text-sm font-semibold text-red-600 mb-2">Risiko Etika</h4>
+      <div className="space-y-2">
+        {sortedRisks.map((risk, i) => {
+          const style = riskStyles[risk.priority] || riskStyles.medium;
+          return (
+            <div key={i} className={`rounded-xl p-3 ${style.class}`}>
+              <div className="flex items-start gap-2">
+                <Dot className={style.dot} />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                    {style.label}
+                  </p>
+                  <p className="text-sm font-medium text-slate-700">
+                    {risk.type === 'defamation' && 'Risiko Fitnah'}
+                    {risk.type === 'privacy' && 'Risiko Privasi'}
+                    {risk.type === 'consent' && 'Risiko Izin'}
+                    {risk.type !== 'defamation' && risk.type !== 'privacy' && risk.type !== 'consent' && risk.type}
+                    {risk.keyword && `: "${risk.keyword}"`}
+                  </p>
+                  {risk.context && (
+                    <p className="text-xs text-slate-600 mt-1">{risk.context}</p>
+                  )}
+                  {risk.detail && (
+                    <p className="text-xs text-slate-500 mt-1">{risk.detail}</p>
+                  )}
+                  {risk.recommendation && (
+                    <p className="text-xs text-blue-600 mt-2 font-medium">
+                      Rekomendasi: {risk.recommendation}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Meta info section
+const MetaSection = ({ meta }) => {
+  if (!meta || Object.keys(meta).length === 0) return null;
+  
+  const formatValue = (key, value) => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
+    if (typeof value === 'number') return value;
+    return String(value);
+  };
+  
+  const formatKey = (key) => {
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  };
+  
+  return (
+    <div className="pt-3 border-t border-slate-200 mt-4">
+      <h4 className="text-xs font-semibold text-slate-400 mb-2">Detail Analisis</h4>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {Object.entries(meta).map(([key, value]) => (
+          <div key={key} className="flex justify-between py-1">
+            <span className="text-slate-500">{formatKey(key)}:</span>
+            <span className="text-slate-700 font-medium">{formatValue(key, value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Notes section
+const NotesSection = ({ notes }) => {
+  if (!notes || notes.length === 0) return null;
+  
+  return (
+    <div className="mb-4">
+      <h4 className="text-sm font-semibold text-slate-600 mb-2">Catatan</h4>
+      <ul className="space-y-1">
+        {notes.map((note, i) => (
+          <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+            <span className="text-blue-500 mt-0.5">-</span>
+            {note}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// Strengths section
+const StrengthsSection = ({ strengths }) => {
+  if (!strengths || strengths.length === 0) return null;
+  
+  return (
+    <div className="mb-4">
+      <h4 className="text-sm font-semibold text-emerald-600 mb-2">Kelebihan</h4>
+      <ul className="space-y-1">
+        {strengths.map((s, i) => (
+          <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+            <CheckGlyph className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+            {s}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// ============================================
+// ENHANCED CATEGORY DETAIL COMPONENT
+// ============================================
+
+const CategoryDetail = ({ details, isExpanded }) => {
+  if (!isExpanded) return null;
+  
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Main description */}
+      {details.text && (
+        <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
+          <p className="text-sm text-blue-800">{details.text}</p>
+        </div>
+      )}
+      
+      {/* Risks section (for Etika) - displayed at top */}
+      {details.risks?.length > 0 && (
+        <RisksSection risks={details.risks} />
+      )}
+      
+      {/* Notes */}
+      {details.notes?.length > 0 && (
+        <NotesSection notes={details.notes} />
+      )}
+      
+      {/* Strengths */}
+      {details.strengths?.length > 0 && (
+        <StrengthsSection strengths={details.strengths} />
+      )}
+      
+      {/* Weaknesses - with special rendering */}
+      {details.weaknesses?.length > 0 && (
+        <CollapsibleWeaknessList
+          title="Kelemahan"
+          weaknesses={details.weaknesses}
+          maxVisible={5}
+        />
+      )}
+      
+      {/* Meta info */}
+      {details.meta && Object.keys(details.meta).length > 0 && (
+        <MetaSection meta={details.meta} />
+      )}
+    </div>
+  );
+};
 
 // Spacing issue: shows the exact before/after text with the extra
 // whitespace made visible, so the writer can see precisely what to fix.
@@ -156,87 +588,6 @@ const TrailingIssueBox = ({ issue }) => {
       {issue.recommendation && (
         <p className="text-xs text-slate-500 mt-2 italic">
           💡 {toString(issue.recommendation)}
-        </p>
-      )}
-    </div>
-  );
-};
-
-const WeaknessList = ({ weaknesses, max = 5 }) => {
-  if (!weaknesses || !Array.isArray(weaknesses) || weaknesses.length === 0) return null;
-  const display = weaknesses.slice(0, max);
-  
-  // Helper to safely convert value to string for display
-  const toString = (val) => {
-    if (val === null || val === undefined) return '';
-    if (typeof val === 'string') return val;
-    if (typeof val === 'number') return String(val);
-    if (typeof val === 'object') return JSON.stringify(val);
-    return String(val);
-  };
-  
-  return (
-    <div className="mt-3 space-y-2">
-      {display.map((w, i) => {
-        // Ensure w is an object with expected properties
-        if (!w || typeof w !== 'object') return null;
-        
-        const style = weaknessStyles[w.type] || weaknessStyles.passive;
-        const weakText = toString(w.text);
-        
-        // Special rendering for spacing issues (Option B)
-        if (w.type === 'spacing') {
-          return (
-            <div key={i} className="text-xs">
-              <SpacingIssueBox issue={w} />
-            </div>
-          );
-        }
-        
-        // Special rendering for trailing issues
-        if (w.type === 'trailing') {
-          return (
-            <div key={i} className="text-xs">
-              <TrailingIssueBox issue={w} />
-            </div>
-          );
-        }
-        
-        // Standard rendering for other issues
-        return (
-          <div
-            key={i}
-            className={`flex items-start gap-2.5 rounded-lg p-2.5 text-xs ${style.class}`}
-          >
-            <Dot className={style.dot} />
-            <div className="min-w-0">
-              <p className="font-medium text-slate-700">
-                {w.passiveWord && (
-                  <span className="font-semibold text-red-700">
-                    &ldquo;{w.passiveWord}&rdquo;
-                  </span>
-                )}
-                {w.wordCount && <span>Kalimat {w.wordCount} kata</span>}
-                {w.count && (
-                  <span>
-                    &ldquo;{w.text}&rdquo; &middot; {w.count}x
-                  </span>
-                )}
-                {(w.type === "linebreak" || w.type === "quotes") && (
-                  <span>{w.note || "Masalah teknis"}</span>
-                )}
-              </p>
-              {w.text && w.type !== "formal" && (
-                <p className="mt-1 text-slate-500">{w.text.slice(0, 120)}...</p>
-              )}
-              <Recommendation text={w.recommendation} />
-            </div>
-          </div>
-        );
-      })}
-      {weaknesses.length > max && (
-        <p className="text-xs text-slate-400">
-          dan {weaknesses.length - max} temuan lainnya
         </p>
       )}
     </div>
@@ -362,9 +713,9 @@ function App() {
   };
 
   const modeOptions = [
-    { id: 'local', name: 'Lokal (Gratis)', desc: '~70% akurat, tanpa API' },
-    { id: 'hybrid', name: 'Hybrid (Disarankan)', desc: '~85% akurat, hemat biaya' },
-    { id: 'llm', name: 'LLM Penuh', desc: '~95% akurat, biaya lebih tinggi' },
+    { id: 'local', name: 'Lokal ', desc: 'tanpa API' },
+    { id: 'hybrid', name: 'Hybrid (Disarankan)' },
+    { id: 'llm', name: 'LLM Penuh' },
   ];
 
   return (
