@@ -767,6 +767,236 @@ const VerificationFlagList = ({ flags, extractedBody }) => {
   );
 };
 
+// ============================================================================
+// HOOK METER - Storytelling Quality Component
+// ============================================================================
+
+const HookMeterBadge = ({ score }) => {
+  const getColor = (score) => {
+    if (score >= 85) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Excellent' };
+    if (score >= 70) return { bg: 'bg-green-100', text: 'text-green-700', label: 'Good' };
+    if (score >= 55) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Average' };
+    if (score >= 40) return { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Below Avg' };
+    return { bg: 'bg-red-100', text: 'text-red-700', label: 'Poor' };
+  };
+  
+  const colors = getColor(score || 0);
+  
+  return (
+    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${colors.bg} ${colors.text}`}>
+      {score}
+    </span>
+  );
+};
+
+const MetricBar = ({ label, score, strength, weakness, icon }) => (
+  <div className="mb-4 last:mb-0">
+    <div className="mb-1 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-sm font-medium text-slate-700">{label}</span>
+      </div>
+      <span className="text-sm font-semibold text-slate-600">{score}</span>
+    </div>
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+      <div 
+        className={`h-full rounded-full transition-all ${
+          score >= 70 ? 'bg-emerald-400' : 
+          score >= 50 ? 'bg-amber-400' : 'bg-red-400'
+        }`}
+        style={{ width: `${score}%` }}
+      />
+    </div>
+    {strength && (
+      <p className="mt-1 text-xs text-emerald-600">+ {strength}</p>
+    )}
+    {weakness && (
+      <p className="mt-0.5 text-xs text-red-500">- {weakness}</p>
+    )}
+  </div>
+);
+
+const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (loading) {
+    return (
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <span className="text-sm text-slate-500">Menganalisis storytelling quality...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!hookMeter || hookMeter.skipped) {
+    return (
+      <div className="rounded-3xl bg-slate-50 p-6 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center gap-2 text-slate-500">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm">Hook Meter tidak berlaku untuk artikel ini</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">{hookMeter?.reason || 'Artikel terlalu pendek atau bukan tipe naratif'}</p>
+      </div>
+    );
+  }
+  
+  const getLevelColor = (level) => {
+    switch (level) {
+      case 'excellent': return 'text-emerald-600';
+      case 'good': return 'text-green-600';
+      case 'average': return 'text-amber-600';
+      case 'below_average': return 'text-orange-600';
+      case 'poor': return 'text-red-600';
+      default: return 'text-slate-600';
+    }
+  };
+  
+  return (
+    <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between p-6 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-blue-950">Hook Meter</h3>
+            <p className="text-xs text-slate-500">Storytelling Quality</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <HookMeterBadge score={hookMeter.score} />
+            <p className={`mt-1 text-xs font-medium ${getLevelColor(hookMeter.level)}`}>
+              {hookMeter.level === 'excellent' ? 'Excellent' :
+               hookMeter.level === 'good' ? 'Good' :
+               hookMeter.level === 'average' ? 'Average' :
+               hookMeter.level === 'below_average' ? 'Below Average' : 'Poor'}
+            </p>
+          </div>
+          <svg className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+      
+      {expanded && (
+        <div className="border-t border-slate-100 px-6 pb-6 pt-4">
+          {/* Partial analysis warning */}
+          {hookMeter._partial && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+              <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span>Analisis tidak lengkap. Data di bawah berdasarkan hasil parsial.</span>
+            </div>
+          )}
+          
+          {/* Summary */}
+          <p className="mb-4 text-sm text-slate-600">{hookMeter.summary}</p>
+          
+          {/* Metrics */}
+          <div className="mb-4 rounded-xl bg-slate-50 p-4">
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Metrics</h4>
+            
+            {hookMeter.metrics && Object.entries(hookMeter.metrics).map(([key, metric]) => {
+              const labels = {
+                openingHook: { label: 'Opening Hook', icon: 'text-purple-500' },
+                characterPresence: { label: 'Character Presence', icon: 'text-pink-500' },
+                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-500' },
+                sensoryDetails: { label: 'Sensory Details', icon: 'text-emerald-500' },
+                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-amber-500' },
+              };
+              const info = labels[key] || { label: key, icon: 'text-slate-500' };
+              return (
+                <MetricBar 
+                  key={key}
+                  label={info.label} 
+                  score={metric?.score || 0}
+                  strength={metric?.strength}
+                  weakness={metric?.weakness}
+                  icon={<span className={`h-4 w-4 rounded-full ${info.icon} bg-current opacity-30`} />}
+                />
+              );
+            })}
+            
+            {/* If no metrics, show fallback */}
+            {(!hookMeter.metrics || Object.keys(hookMeter.metrics).length === 0) && (
+              <>
+                <MetricBar label="Opening Hook" score={0} icon={<span className="h-4 w-4 rounded-full bg-purple-500 opacity-30" />} />
+                <MetricBar label="Character Presence" score={0} icon={<span className="h-4 w-4 rounded-full bg-pink-500 opacity-30" />} />
+                <MetricBar label="Narrative Arc" score={0} icon={<span className="h-4 w-4 rounded-full bg-blue-500 opacity-30" />} />
+                <MetricBar label="Sensory Details" score={0} icon={<span className="h-4 w-4 rounded-full bg-emerald-500 opacity-30" />} />
+                <MetricBar label="Emotional Resonance" score={0} icon={<span className="h-4 w-4 rounded-full bg-amber-500 opacity-30" />} />
+              </>
+            )}
+          </div>
+          
+          {/* Weakness Summary */}
+          {hookMeter.metrics && Object.values(hookMeter.metrics).some(m => m?.weakness) && (
+            <div className="mb-4 rounded-xl bg-red-50 p-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">Kelemahan Storytelling</h4>
+              <ul className="space-y-1.5">
+                {Object.entries(hookMeter.metrics).map(([key, metric]) => {
+                  const labels = {
+                    openingHook: 'Opening Hook',
+                    characterPresence: 'Character Presence',
+                    narrativeArc: 'Narrative Arc',
+                    sensoryDetails: 'Sensory Details',
+                    emotionalResonance: 'Emotional Resonance',
+                  };
+                  if (!metric?.weakness) return null;
+                  return (
+                    <li key={key} className="flex items-start gap-2 text-sm text-red-700">
+                      <span className="mt-1 text-red-400">•</span>
+                      <div>
+                        <span className="font-medium">{labels[key] || key}:</span>{' '}
+                        <span>{metric.weakness}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          
+          {/* Suggestions */}
+          {hookMeter.suggestions && hookMeter.suggestions.length > 0 && (
+            <div className="rounded-xl bg-purple-50 p-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-600">Suggestions</h4>
+              <ul className="space-y-1">
+                {hookMeter.suggestions.map((suggestion, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-purple-700">
+                    <span className="mt-1 text-purple-400">•</span>
+                    <span>{suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Fallback when no weaknesses and no suggestions */}
+          {(!hookMeter.metrics || !Object.values(hookMeter.metrics).some(m => m?.weakness)) && 
+           (!hookMeter.suggestions || hookMeter.suggestions.length === 0) && (
+            <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
+              <p>Storytelling analysis completed. Check the metrics above for detail.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
@@ -785,6 +1015,10 @@ function App() {
   
   // Highlights collapse state
   const [highlightsExpanded, setHighlightsExpanded] = useState(false);
+  
+  // Hook Meter state
+  const [hookMeter, setHookMeter] = useState(null);
+  const [hookMeterLoading, setHookMeterLoading] = useState(false);
 
   const words = useMemo(
     () => text.trim().split(/\s+/).filter(Boolean).length,
@@ -888,7 +1122,7 @@ function App() {
       
       // Handle spacing/trailing in frontend (regex-based, no API needed)
       const frontendOnlyCategories = ['spacing', 'trailing'];
-      const llmCategories = ['passive', 'complex', 'formal', 'puebi', 'struktur', 'seo'];
+      const llmCategories = ['passive', 'complex', 'formal', 'puebi', 'struktur', 'seo', 'hookMeter'];
       const onlyFrontend = reviseCategories.every(c => frontendOnlyCategories.includes(c));
       
       if (onlyFrontend) {
@@ -965,6 +1199,7 @@ function App() {
     setResult(null);
     setExpandedCategory(null);
     setRevisionResult(null);
+    setHookMeter(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -984,6 +1219,27 @@ function App() {
 
       const data = await response.json();
       setResult(data);
+      
+      // Analyze Hook Meter separately
+      setHookMeterLoading(true);
+      try {
+        const hookMeterResponse = await fetch("/api/hook-meter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: data.extracted_body || text
+          }),
+        });
+        
+        if (hookMeterResponse.ok) {
+          const hookMeterData = await hookMeterResponse.json();
+          setHookMeter(hookMeterData);
+        }
+      } catch (hookErr) {
+        console.log("Hook Meter analysis skipped:", hookErr.message);
+      } finally {
+        setHookMeterLoading(false);
+      }
     } catch (err) {
       setError(err.message || "Terjadi kesalahan");
     } finally {
@@ -1285,6 +1541,11 @@ function App() {
               </div>
             )}
 
+            {/* Hook Meter Section */}
+            {(hookMeter || hookMeterLoading) && (
+              <HookMeterCard hookMeter={hookMeter} loading={hookMeterLoading} />
+            )}
+
             {/* Auto-Revisi Section */}
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
               <h3 className="text-lg font-semibold text-blue-950 mb-1">
@@ -1305,6 +1566,7 @@ function App() {
                   { id: 'trailing', label: 'Spasi Akhir', desc: 'Hapus trailing' },
                   { id: 'struktur', label: 'Struktur & Format', desc: 'Fix judul, lead, heading', badge: 'LLM' },
                   { id: 'seo', label: 'SEO', desc: 'Fix keyword, paragraf mati', badge: 'LLM' },
+                  { id: 'hookMeter', label: 'Storytelling', desc: 'Tingkatkan Hook Meter', badge: 'LLM' },
                 ].map(cat => (
                   <label
                     key={cat.id}
@@ -1401,8 +1663,9 @@ function App() {
                               change.type === 'spacing' ? 'bg-slate-100 text-slate-700' :
                               change.type === 'trailing' ? 'bg-gray-100 text-gray-700' :
                               change.type === 'struktur' ? 'bg-purple-100 text-purple-700' :
-                              change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
-                              'bg-green-100 text-green-700'
+                               change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
+                               change.type === 'hookMeter' ? 'bg-pink-100 text-pink-700' :
+                               'bg-green-100 text-green-700'
                             }`}>
                               {change.type?.toUpperCase()}
                             </span>

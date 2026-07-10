@@ -39,6 +39,19 @@ Tandai klaim yang perlu diverifikasi manual:
 ### 4. Sorotan Kalimat
 Tampilkan kalimat-kalimat yang perlu perhatian khusus berdasarkan hasil analisis.
 
+### 5. Hook Meter
+Penilaian storytelling quality untuk artikel naratif (feature, deep dive, long-form, dll).
+
+**Hanya aktif untuk artikel yang eligible** (bukan straight news, tips, atau data dump).
+
+| Metric | Bobot | Fokus |
+|--------|-------|-------|
+| Opening Hook | 25% | Kemampuan opening menarik perhatian |
+| Character Presence | 20% | Ada orang nyata, kutipan, sudut pandang |
+| Narrative Arc | 20% | Konflik → Perkembangan → Resolusi |
+| Sensory Details | 15% | Deskripsi spesifik, scenes |
+| Emotional Resonance | 20% | Kemampuan bangun emosi pembaca |
+
 ---
 
 ## Quick Start

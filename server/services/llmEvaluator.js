@@ -53,6 +53,67 @@ const parseJSON = (text) => {
   }
 };
 
+// Helper to strip markdown and parse JSON from LLM response
+const parseLLMResponse = (text) => {
+  const clean = text
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '');
+  
+  try {
+    return JSON.parse(clean);
+  } catch (err) {
+    // Extract metrics from truncated JSON
+    const extractMetric = (json, name) => {
+      const re = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*"score"\\s*:\\s*(\\d+)`);
+      const m = json.match(re);
+      return m ? parseInt(m[1]) : null;
+    };
+    
+    const extractText = (json, name, field) => {
+      const re = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*"${field}"\\s*:\\s*"([^"]+)"`);
+      const m = json.match(re);
+      return m ? m[1] : '';
+    };
+    
+    const buildMetric = (name) => ({
+      score: extractMetric(clean, name) || 0,
+      strength: extractText(clean, name, 'strength') || '',
+      weakness: extractText(clean, name, 'weakness') || ''
+    });
+    
+    const scoreMatch = clean.match(/"score":\s*(\d+)/);
+    const levelMatch = clean.match(/"level":\s*"([^"]+)"/);
+    const summaryMatch = clean.match(/"summary"\s*:\s*"([^"]+)"/);
+    const suggestionMatch = clean.match(/"suggestions"\s*:\s*\[([^\]]+)\]/);
+    
+    if (scoreMatch && levelMatch) {
+      const suggestions = suggestionMatch
+        ? suggestionMatch[1].split(',').map(s => s.trim().replace(/"/g, '')).filter(Boolean)
+        : [];
+      
+      return {
+        score: parseInt(scoreMatch[1]),
+        level: levelMatch[1],
+        metrics: {
+          openingHook: buildMetric('openingHook'),
+          characterPresence: buildMetric('characterPresence'),
+          narrativeArc: buildMetric('narrativeArc'),
+          sensoryDetails: buildMetric('sensoryDetails'),
+          emotionalResonance: buildMetric('emotionalResonance')
+        },
+        summary: summaryMatch ? summaryMatch[1] : 'Analisis terpotong - periksa detail di bawah',
+        suggestions,
+        _partial: true,
+        _error: err.message
+      };
+    }
+    
+    throw new Error(`JSON tidak valid: ${err.message}. Response: ${clean.slice(0, 200)}...`);
+  }
+};
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const evaluateWithLLM = async (articleText, retries = 2) => {
@@ -114,6 +175,288 @@ export const evaluateWithLLM = async (articleText, retries = 2) => {
 };
 
 // ============================================================================
+// ARTICLE CLASSIFICATION
+// ============================================================================
+
+const ARTICLE_TYPES = {
+  NARRATIVE_ELIGIBLE: ['feature', 'deep_dive', 'long_form', 'human_interest', 'narrative', 'profile', 'biography', 'investigative'],
+  SKIP: ['straight_news', 'breaking', 'briefing', 'tips', 'how_to', 'data_dump', 'press_release', 'opinion', 'quick_update']
+};
+
+const CLASSIFY_SYSTEM_PROMPT = `Anda klasifikator artikel berita Indonesia.
+
+TUGAS: Klasifikasikan tipa artikel dan tentukan apakah eligible untuk penilaian storytelling ("Hook Meter").
+
+JENIS ARTIKEL:
+- feature: Artikel feature dengan angle cerita, emosional
+- deep_dive: Eksplorasi topik mendalam, komprehensif
+- long_form: Artikel panjang (>1000 kata)
+- human_interest: Fokus pada orang/orang-orang
+- narrative: Narrative journalism dengan arc cerita
+- profile: Profil seseorang atau organisasi
+- biography: Biografi seseorang
+- investigative: Laporan investigasi
+- straight_news: Berita straight (inverted pyramid, fakta langsung)
+- breaking: Berita singkat, urgent
+- briefing: Pemberitahuan singkat
+- tips: Tips atau panduan langkah
+- how_to: Tutorial
+- data_dump: Artikel berbasis data/fakta semata
+- press_release: Rilis pers
+- opinion: Opini redaksi
+- quick_update: Update singkat
+
+ATURAN ELIGIBILITY:
+- Hook Meter diterapkan JIKA: wordCount >= 400 DAN type IN [feature, deep_dive, long_form, human_interest, narrative, profile, biography, investigative]
+- Hook Meter DITOLAK JIKA: wordCount < 400 ATAU type IN [straight_news, breaking, briefing, tips, how_to, data_dump, press_release, opinion, quick_update]
+
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
+{"type":"nama_tipe","subtype":"subtipe_jika_ada","wordCount":500,"eligibleForHookMeter":true,"reason":"penjelasan_singkat"}`;
+
+export const classifyArticle = async (text, retries = 2) => {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  
+  // Quick check for obvious types based on content patterns
+  const quickChecks = {
+    wordCount,
+    hasHowToPatterns: /\d+\s+ langkah|caranya\s*:|tips\s*:|tutorial/i.test(text),
+    isStraightNews: /^([A-Z][a-z]+\s+){1,3}(menyatakan|mengatakan|menambahkan|melaporkan)/.test(text) && wordCount < 400,
+    hasStepByStep: /\d+\.\s+[A-Z]|langkah\s+\d+|pertama|kedua|ketiga/i.test(text)
+  };
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch("https://gateway.olagon.site/anthropic/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 300,
+          system: CLASSIFY_SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: `Klasifikasikan artikel ini:\n"""\n${text.slice(0, 2000)}\n"""` }
+          ],
+        }),
+      });
+
+      if (response.status === 529 || response.status === 429) {
+        if (attempt < retries) {
+          await sleep((attempt + 1) * 2000);
+          continue;
+        }
+        throw new Error("API overload. Coba lagi nanti.");
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API error: ${response.status} - ${errText.slice(0, 200)}`);
+      }
+
+      const data = await response.json();
+      
+      // Check for API error
+      if (data.error) {
+        throw new Error(`API Error: ${data.error.type || 'unknown'} - ${data.error.message || JSON.stringify(data.error)}`);
+      }
+      
+      // Check content structure
+      if (!data.content || !Array.isArray(data.content)) {
+        throw new Error(`Respons API tidak valid: content type is ${typeof data.content}`);
+      }
+      
+      const textBlock = data.content?.find((c) => c.type === "text");
+      if (!textBlock || !textBlock.text) {
+        throw new Error("Respons LLM tidak mengandung teks.");
+      }
+
+      const result = parseLLMResponse(textBlock.text);
+      return {
+        ...result,
+        wordCount
+      };
+    } catch (err) {
+      console.error(`Classify attempt ${attempt + 1} failed:`, err.message);
+      if (attempt === retries) {
+        // Fallback: assume not eligible
+        return {
+          type: 'unknown',
+          wordCount,
+          eligibleForHookMeter: false,
+          reason: `Klasifikasi gagal: ${err.message}`
+        };
+      }
+      await sleep((attempt + 1) * 1000);
+    }
+  }
+};
+
+// ============================================================================
+// HOOK METER - STORYTELLING ANALYSIS
+// ============================================================================
+
+const HOOK_METER_PROMPT = `Anda redaktur senior media Indonesia dengan keahlian storytelling journalism.
+
+TUGAS: Analisis kualitas storytelling artikel dengan 5 dimensi.
+
+DIMENSI PENILAIAN:
+
+1. OPENING HOOK (25% bobot)
+   - Opening sentence menarik perhatian?
+   - Ada pertanyaan, statistik mengejutkan, atau scene langsung engage?
+   - Lead langsung ke inti berita?
+
+2. CHARACTER PRESENCE (20% bobot)
+   - Ada orang nyata dengan perspektif/kutipan langsung?
+   - Ada karakter yang bisa dibayangkan pembaca?
+   - Sudut pandang manusia (bukan hanya data/fakta)?
+
+3. NARRATIVE ARC (20% bobot)
+   - Ada konflik atau masalah yang dibangun?
+   - Ada perkembangan cerita dari awal ke akhir?
+   - Ada resolusi atau lessons learned?
+
+4. SENSORY DETAILS (15% bobot)
+   - Ada deskripsi spesifik (waktu, tempat, suasana)?
+   - Atau hanya statement abstrak/generic?
+   - Ada details yang membuat pembaca "see the scene"?
+
+5. EMOTIONAL RESONANCE (20% bobot)
+   - Bisa membangun emosi pembaca (empati, curiosity, urgency)?
+   - Word choice evocative atau flat?
+   - Ada element yang relatable untuk audiens?
+
+PENTING: strength dan weakness maksimal 1 kalimat singkat per field. summary 1-2 kalimat.
+suggestions maksimal 2 saran singkat.
+
+SCORING: 0-100 per dimensi, 0-100 total
+
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
+{
+  "score": 0-100,
+  "level": "excellent|good|average|below_average|poor",
+  "metrics": {
+    "openingHook": {"score": 0-100, "strength": "kekuatan singkat", "weakness": "kelemahan singkat"},
+    "characterPresence": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "narrativeArc": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "sensoryDetails": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "emotionalResonance": {"score": 0-100, "strength": "...", "weakness": "..."}
+  },
+  "summary": "ringkasan 1-2 kalimat",
+  "suggestions": ["saran singkat 1", "saran singkat 2"]
+}`;
+
+export const analyzeHookMeter = async (text, retries = 2) => {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  
+  // Skip if article too short
+  if (wordCount < 400) {
+    return {
+      skipped: true,
+      reason: 'Artikel terlalu pendek untuk storytelling analysis',
+      score: null
+    };
+  }
+  
+  // Truncate for API efficiency
+  let truncatedText = text;
+  if (text.length > 5000) {
+    truncatedText = text.slice(0, 5000);
+  }
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch("https://gateway.olagon.site/anthropic/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 2000,
+          system: HOOK_METER_PROMPT,
+          messages: [
+            { role: "user", content: `Analisis storytelling artikel ini:\n"""\n${truncatedText}\n"""` }
+          ],
+        }),
+      });
+
+      if (response.status === 529 || response.status === 429) {
+        if (attempt < retries) {
+          await sleep((attempt + 1) * 2000);
+          continue;
+        }
+        throw new Error("API overload. Coba lagi nanti.");
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API error: ${response.status} - ${errText.slice(0, 200)}`);
+      }
+
+      const data = await response.json();
+      
+      // Debug: log response structure
+      console.log("Hook Meter response structure:", JSON.stringify(data).slice(0, 500));
+      
+      // Check for API error in response
+      if (data.error) {
+        throw new Error(`API Error: ${data.error.type || 'unknown'} - ${data.error.message || JSON.stringify(data.error)}`);
+      }
+      
+      // Check content structure
+      if (!data.content || !Array.isArray(data.content)) {
+        throw new Error(`Respons API tidak valid: content type is ${typeof data.content}`);
+      }
+      
+      // Find text block
+      const textBlock = data.content?.find((c) => c.type === "text");
+      if (!textBlock || !textBlock.text) {
+        // Try to find any block with text
+        const anyBlock = data.content.find((c) => c.text);
+        if (anyBlock) {
+          const result = parseLLMResponse(anyBlock.text);
+          return {
+            ...result,
+            wordCount,
+            analyzedAt: new Date().toISOString()
+          };
+        }
+        throw new Error("Respons LLM tidak mengandung teks.");
+      }
+
+      const result = parseLLMResponse(textBlock.text);
+      return {
+        ...result,
+        wordCount,
+        analyzedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      console.error(`Hook Meter attempt ${attempt + 1} failed:`, err.message);
+      if (attempt === retries) {
+        // Return skipped result instead of throwing
+        return {
+          skipped: true,
+          reason: `Analisis gagal: ${err.message}`,
+          score: null,
+          wordCount
+        };
+      }
+      await sleep((attempt + 1) * 1000);
+    }
+  }
+};
+
+// ============================================================================
 // AUTO-REVISION SERVICE
 // ============================================================================
 
@@ -150,6 +493,10 @@ const CATEGORY_RULES = {
   seo: {
     label: "SEO",
     rule: "PERINGATAN: Menggunakan prompt khusus SEO."
+  },
+  hookMeter: {
+    label: "Storytelling",
+    rule: "PERINGATAN: Menggunakan prompt khusus Storytelling."
   }
 };
 
@@ -166,7 +513,15 @@ const CUSTOM_PROMPTS = {
 1. Perbaiki keyword density agar 1-2% - tambahkan kata kunci secara natural di judul, lead, dan subjudul
 2. Hapus atau perbaiki paragraf "mati" (paragraf tanpa fakta, angka, atau kutipan)
 3. Tambahkan fakta/data di setiap paragraf agar density 1 fakta per 150-200 kata
-4. Pastikan lead mengandung kata kunci utama untuk meta description yang optimal`
+4. Pastikan lead mengandung kata kunci utama untuk meta description yang optimal`,
+
+  hookMeter: `PERBAIKAN STORYTELLING (HOOK METER):
+1. OPENING HOOK: Perbaiki kalimat pertama agar lebih menarik - bisa pakai pertanyaan, statistik mengejutkan, atau scene langsung
+2. CHARACTER PRESENCE: Tambahkan perspektif manusia (kutipan langsung, pengalaman personal, tokoh nyata)
+3. NARRATIVE ARC: Bangun alur cerita yang jelas - ada konflik/masalah, perkembangan, dan resolusi atau lessons learned
+4. SENSORY DETAILS: Tambahkan deskripsi spesifik tentang waktu, tempat, suasana, detail fisik yang membuat pembaca "melihat" kejadian
+5. EMOTIONAL RESONANCE: Pilih kata yang lebih evocative, bangun empati atau rasa ingin tahu, buat lebih relatable
+PENTING: Jaga fakta, angka, nama, dan data statistik tetap akurat.`
 };
 
 // Generate dynamic system prompt for revision based on selected categories
@@ -204,7 +559,9 @@ TUGAS KHUSUS:
 2. Identifikasi PER KALIMAT apa yang diubah dan jelaskan alasannya
 3. Hitung jumlah kata sebelum dan sesudah
 
-BALAS HANYA JSON valid:
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
 {
   "revised_text": "teks artikel yang sudah direvisi sesuai kategori...",
   "changes": [

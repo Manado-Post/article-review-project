@@ -9,7 +9,7 @@ import {
   analyzeEtika,
   analyzeAudiens,
 } from "../services/heuristics.js";
-import { evaluateWithLLM, reviseText } from "../services/llmEvaluator.js";
+import { evaluateWithLLM, reviseText, classifyArticle, analyzeHookMeter } from "../services/llmEvaluator.js";
 import { hashText, getCached, setCached } from "../services/cache.js";
 import { fetchArticleFromUrl } from "../services/urlScraper.js";
 import { extractVerificationFlags } from "../services/factExtractor.js";
@@ -387,6 +387,87 @@ router.post("/revise", async (req, res) => {
   } catch (err) {
     console.error("Revisi error:", err);
     return res.status(500).json({ error: err.message || "Gagal melakukan revisi." });
+  }
+});
+
+// Classify article type and determine Hook Meter eligibility
+router.post("/classify", async (req, res) => {
+  const { text } = req.body;
+
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Teks artikel diperlukan." });
+  }
+
+  try {
+    const result = await classifyArticle(text);
+    return res.json(result);
+  } catch (err) {
+    console.error("Classification error:", err);
+    return res.status(500).json({ error: err.message || "Gagal mengklasifikasikan artikel." });
+  }
+});
+
+// Analyze Hook Meter (storytelling quality) with caching
+router.post("/hook-meter", async (req, res) => {
+  const { text } = req.body;
+
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Teks artikel diperlukan." });
+  }
+
+  const cacheKey = hashText(text + "|hook-meter|v1");
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return res.json({ ...cached, fromCache: true });
+  }
+
+  try {
+    const result = await analyzeHookMeter(text);
+    setCached(cacheKey, result);
+    return res.json(result);
+  } catch (err) {
+    console.error("Hook Meter error:", err);
+    return res.status(500).json({ error: err.message || "Gagal menganalisis Hook Meter." });
+  }
+});
+
+// Combined endpoint: classify + Hook Meter in one call
+router.post("/analyze-with-hook-meter", async (req, res) => {
+  const { text, url } = req.body;
+
+  let articleText = text;
+  
+  // Fetch article from URL if provided
+  if ((!articleText || !articleText.trim()) && url && url.trim()) {
+    try {
+      const scraped = await fetchArticleFromUrl(url);
+      articleText = scraped.text;
+    } catch (scrapeError) {
+      return res.status(400).json({ error: scrapeError.message });
+    }
+  }
+
+  if (!articleText || !articleText.trim()) {
+    return res.status(400).json({ error: "Teks artikel atau URL diperlukan." });
+  }
+
+  try {
+    // Classify article first
+    const classification = await classifyArticle(articleText);
+    
+    // Analyze Hook Meter only if eligible
+    let hookMeter = null;
+    if (classification.eligibleForHookMeter) {
+      hookMeter = await analyzeHookMeter(articleText);
+    }
+    
+    return res.json({
+      classification,
+      hookMeter
+    });
+  } catch (err) {
+    console.error("Analyze with Hook Meter error:", err);
+    return res.status(500).json({ error: err.message || "Gagal menganalisis artikel." });
   }
 });
 
