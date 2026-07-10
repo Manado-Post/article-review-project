@@ -13,7 +13,7 @@ const Masthead = () => (
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-11 w-11 flex-shrink-0 rounded-xl object-contain sm:h-14 sm:w-14"
+        className="h-12 w-12 flex-shrink-0 rounded-xl object-contain sm:h-16 sm:w-16"
       />
       <img
         src={manadoPostWordmark}
@@ -68,8 +68,17 @@ const Recommendation = ({ text }) => {
 };
 
 // Category score card component
+// Category score card component - Keep red color even when active
 const ScoreCard = ({ category, isActive, onClick, score }) => {
-  const scoreColor = score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-blue-600' : score >= 50 ? 'text-amber-600' : 'text-red-600';
+  // Tentukan warna berdasarkan skor (tidak terpengaruh isActive)
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-emerald-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 50) return 'text-amber-600';
+    return 'text-red-600'; // Skor < 50 = MERAH
+  };
+  
+  const scoreColor = getScoreColor(score);
   
   return (
     <button
@@ -80,10 +89,12 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
           : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
       }`}
     >
-      <span className={`text-2xl font-bold ${isActive ? 'text-white' : scoreColor}`}>
+      <span className={`text-2xl font-bold ${scoreColor}`}>
         {score}
       </span>
-      <span className="flex-1 text-sm font-medium">{category}</span>
+      <span className={`flex-1 text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
+        {category}
+      </span>
       <ChevronIcon expanded={isActive} />
     </button>
   );
@@ -265,6 +276,12 @@ const WeaknessBox = ({ type, label, content, recommendation, style }) => (
 );
 
 // Collapsible weakness list
+// ============================================
+// ENHANCED WEAKNESS DISPLAY COMPONENTS - WITH RED HIGHLIGHT
+// ============================================
+
+// Collapsible weakness list dengan highlight merah
+// Collapsible weakness list - Simple red version
 const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
   const [expanded, setExpanded] = useState(false);
   
@@ -273,78 +290,41 @@ const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
   const visibleWeaknesses = expanded ? weaknesses : weaknesses.slice(0, maxVisible);
   const hasMore = weaknesses.length > maxVisible;
   
-  // Determine which style map to use based on first weakness type
-  const firstType = weaknesses[0]?.type || '';
-  let styleMap;
-  if (firstType === 'spacing' || firstType === 'trailing' || firstType === 'linebreak' || firstType === 'quotes') {
-    styleMap = weaknessStyles;
-  } else if (weaknesses[0]?.type === 'passive' || weaknesses[0]?.type === 'complex' || weaknesses[0]?.type === 'formal') {
-    styleMap = weaknessStyles;
-  } else {
-    // Assume simple string weaknesses or unknown type - use generic
-    styleMap = { default: { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' } };
-  }
+  // Extract text from weakness object
+  const getWeaknessText = (w) => {
+    if (typeof w === 'string') return w;
+    if (w.note) return w.note;
+    if (w.text) return w.text;
+    if (w.label) return w.label;
+    if (w.type) {
+      // Try to get from style maps
+      const styleMap = weaknessStyles[w.type] || 
+                       strukturWeaknessStyles[w.type] || 
+                       seoWeaknessStyles[w.type];
+      return styleMap?.label || w.type;
+    }
+    return JSON.stringify(w);
+  };
   
   return (
     <div>
-      {title && <h4 className="text-sm font-semibold text-slate-600 mb-2">{title}</h4>}
+      {title && (
+        <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-2">
+          <span className="inline-block w-1 h-4 bg-red-500 rounded"></span>
+          {title}
+        </h4>
+      )}
       <div className="space-y-2">
         {visibleWeaknesses.map((w, i) => {
-          // Special rendering for spacing issues
-          if (w.type === 'spacing' && w.spaceCount) {
-            return (
-              <div key={i} className="text-xs">
-                <SpacingIssueBox issue={w} />
-              </div>
-            );
-          }
-          
-          // Special rendering for trailing issues
-          if (w.type === 'trailing') {
-            return (
-              <div key={i} className="text-xs">
-                <TrailingIssueBox issue={w} />
-              </div>
-            );
-          }
-          
-          // Determine style based on weakness type
-          let style = styleMap[w.type] || styleMap.default || { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' };
-          let label = '';
-          let content = '';
-          let recommendation = '';
-          
-          if (typeof w === 'string') {
-            label = w;
-          } else if (w.type && styleMap[w.type]) {
-            label = styleMap[w.type].label;
-            content = w.note || w.text || w.context || '';
-            recommendation = w.recommendation || '';
-          } else {
-            label = w.note || w.text || w.label || '';
-            if (!label) label = JSON.stringify(w);
-            content = w.context || '';
-          }
-          
-          // For passive/complex/formal, include highlighted text
-          if (w.passiveWord) {
-            content = `Kalimat pasif: "${w.passiveWord}"`;
-            if (w.text) content += ' - "' + w.text.slice(0, 100) + '..."';
-          } else if (w.wordCount) {
-            content = `Kalimat ${w.wordCount} kata (ideal ≤25)`;
-          } else if (w.count) {
-            content = `Muncul ${w.count}x dalam teks`;
-          }
-          
+          const text = getWeaknessText(w);
           return (
-            <WeaknessBox
-              key={i}
-              type={w.type}
-              label={label}
-              content={content}
-              recommendation={recommendation}
-              style={style}
-            />
+            <div 
+              key={i} 
+              className="flex items-start gap-2 rounded-lg border-l-4 border-red-500 bg-red-50 p-3"
+            >
+              <span className="text-red-500 font-bold text-sm">⚠</span>
+              <p className="text-sm text-red-700">{text}</p>
+            </div>
           );
         })}
       </div>
@@ -490,23 +470,45 @@ const StrengthsSection = ({ strengths }) => {
 const CategoryDetail = ({ details, isExpanded }) => {
   if (!isExpanded) return null;
   
+  // Gabungkan description text ke dalam notes jika ada
+  const getAllNotes = () => {
+    const notes = [];
+    
+    // Jika ada description text, tambahkan sebagai catatan pertama
+    if (details.text) {
+      notes.push(details.text);
+    }
+    
+    // Tambahkan notes yang sudah ada
+    if (details.notes && details.notes.length > 0) {
+      notes.push(...details.notes);
+    }
+    
+    return notes;
+  };
+  
+  const allNotes = getAllNotes();
+  
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      {/* Main description */}
-      {details.text && (
+      {/* Semua catatan dalam satu box biru */}
+      {allNotes.length > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
-          <p className="text-sm text-blue-800">{details.text}</p>
+          <h4 className="text-sm font-semibold text-blue-700 mb-2">Catatan</h4>
+          <ul className="space-y-1">
+            {allNotes.map((note, i) => (
+              <li key={i} className="text-sm text-blue-800 flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">-</span>
+                {note}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       
       {/* Risks section (for Etika) - displayed at top */}
       {details.risks?.length > 0 && (
         <RisksSection risks={details.risks} />
-      )}
-      
-      {/* Notes */}
-      {details.notes?.length > 0 && (
-        <NotesSection notes={details.notes} />
       )}
       
       {/* Strengths */}
