@@ -7,18 +7,27 @@ import manadoPostWordmark from "./assets/logo.webp";
 // ============================================
 
 // Masthead with logo and title
+
+// Masthead with logo - NEGATIVE MARGIN
 const Masthead = () => (
   <header className="mb-6 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
-    <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+    <div className="flex flex-shrink-0 items-center">
+      {/* Logo */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-12 w-12 flex-shrink-0 rounded-xl object-contain sm:h-16 sm:w-16"
+        className="h-16 w-16 flex-shrink-0 rounded-xl object-contain sm:h-20 sm:w-20"
+        style={{ width: '100px', height: '100px' }}
       />
+      {/* Wordmark - dengan margin negatif untuk mendekat */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
-        className="h-12 w-auto object-contain sm:h-14"
+        className="h-12 w-auto object-contain sm:h-16"
+        style={{ 
+          height: '60px',
+          marginLeft: '-8px' // Mendekatkan dengan margin negatif
+        }}
       />
     </div>
     <h2 className="text-sm font-semibold text-blue-950 sm:text-base">Article Quality Analyzer</h2>
@@ -68,14 +77,14 @@ const Recommendation = ({ text }) => {
 };
 
 // Category score card component
-// Category score card component - Keep red color even when active
+// Category score card component - KEEP ORIGINAL COLOR
 const ScoreCard = ({ category, isActive, onClick, score }) => {
   // Tentukan warna berdasarkan skor (tidak terpengaruh isActive)
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-emerald-600';
     if (score >= 60) return 'text-blue-600';
     if (score >= 50) return 'text-amber-600';
-    return 'text-red-600'; // Skor < 50 = MERAH
+    return 'text-red-600';
   };
   
   const scoreColor = getScoreColor(score);
@@ -83,13 +92,13 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-all ${
+      className={`flex items-center gap-3 rounded-xl px-4 py-2 text-left transition-all ${
         isActive 
-          ? 'bg-blue-900 text-white shadow-md' 
+          ? 'bg-blue-900 shadow-md' 
           : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
       }`}
     >
-      <span className={`text-2xl font-bold ${scoreColor}`}>
+      <span className={`text-xl font-bold ${scoreColor}`}> {/* Warna tetap sesuai skor */}
         {score}
       </span>
       <span className={`flex-1 text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
@@ -282,6 +291,7 @@ const WeaknessBox = ({ type, label, content, recommendation, style }) => (
 
 // Collapsible weakness list dengan highlight merah
 // Collapsible weakness list - Simple red version
+// Collapsible weakness list - KEMBALI KE TAMPILAN SEMULA
 const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
   const [expanded, setExpanded] = useState(false);
   
@@ -290,41 +300,78 @@ const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
   const visibleWeaknesses = expanded ? weaknesses : weaknesses.slice(0, maxVisible);
   const hasMore = weaknesses.length > maxVisible;
   
-  // Extract text from weakness object
-  const getWeaknessText = (w) => {
-    if (typeof w === 'string') return w;
-    if (w.note) return w.note;
-    if (w.text) return w.text;
-    if (w.label) return w.label;
-    if (w.type) {
-      // Try to get from style maps
-      const styleMap = weaknessStyles[w.type] || 
-                       strukturWeaknessStyles[w.type] || 
-                       seoWeaknessStyles[w.type];
-      return styleMap?.label || w.type;
-    }
-    return JSON.stringify(w);
-  };
+  // Determine which style map to use based on first weakness type
+  const firstType = weaknesses[0]?.type || '';
+  let styleMap;
+  if (firstType === 'spacing' || firstType === 'trailing' || firstType === 'linebreak' || firstType === 'quotes') {
+    styleMap = weaknessStyles;
+  } else if (weaknesses[0]?.type === 'passive' || weaknesses[0]?.type === 'complex' || weaknesses[0]?.type === 'formal') {
+    styleMap = weaknessStyles;
+  } else {
+    // Assume simple string weaknesses or unknown type - use generic
+    styleMap = { default: { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' } };
+  }
   
   return (
     <div>
-      {title && (
-        <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-2">
-          <span className="inline-block w-1 h-4 bg-red-500 rounded"></span>
-          {title}
-        </h4>
-      )}
+      {title && <h4 className="text-sm font-semibold text-slate-600 mb-2">{title}</h4>}
       <div className="space-y-2">
         {visibleWeaknesses.map((w, i) => {
-          const text = getWeaknessText(w);
+          // Special rendering for spacing issues
+          if (w.type === 'spacing' && w.spaceCount) {
+            return (
+              <div key={i} className="text-xs">
+                <SpacingIssueBox issue={w} />
+              </div>
+            );
+          }
+          
+          // Special rendering for trailing issues
+          if (w.type === 'trailing') {
+            return (
+              <div key={i} className="text-xs">
+                <TrailingIssueBox issue={w} />
+              </div>
+            );
+          }
+          
+          // Determine style based on weakness type
+          let style = styleMap[w.type] || styleMap.default || { dot: 'bg-slate-400', class: 'border border-slate-200 bg-slate-50' };
+          let label = '';
+          let content = '';
+          let recommendation = '';
+          
+          if (typeof w === 'string') {
+            label = w;
+          } else if (w.type && styleMap[w.type]) {
+            label = styleMap[w.type].label;
+            content = w.note || w.text || w.context || '';
+            recommendation = w.recommendation || '';
+          } else {
+            label = w.note || w.text || w.label || '';
+            if (!label) label = JSON.stringify(w);
+            content = w.context || '';
+          }
+          
+          // For passive/complex/formal, include highlighted text
+          if (w.passiveWord) {
+            content = `Kalimat pasif: "${w.passiveWord}"`;
+            if (w.text) content += ' - "' + w.text.slice(0, 100) + '..."';
+          } else if (w.wordCount) {
+            content = `Kalimat ${w.wordCount} kata (ideal ≤25)`;
+          } else if (w.count) {
+            content = `Muncul ${w.count}x dalam teks`;
+          }
+          
           return (
-            <div 
-              key={i} 
-              className="flex items-start gap-2 rounded-lg border-l-4 border-red-500 bg-red-50 p-3"
-            >
-              <span className="text-red-500 font-bold text-sm">⚠</span>
-              <p className="text-sm text-red-700">{text}</p>
-            </div>
+            <WeaknessBox
+              key={i}
+              type={w.type}
+              label={label}
+              content={content}
+              recommendation={recommendation}
+              style={style}
+            />
           );
         })}
       </div>
@@ -426,20 +473,24 @@ const MetaSection = ({ meta }) => {
 };
 
 // Notes section
+// Notes section - WITH NUMBERED LIST (cleaner style)
+// Notes section - WITH NUMBERED LIST (circle badge)
 const NotesSection = ({ notes }) => {
   if (!notes || notes.length === 0) return null;
   
   return (
     <div className="mb-4">
       <h4 className="text-sm font-semibold text-slate-600 mb-2">Catatan</h4>
-      <ul className="space-y-1">
+      <div className="space-y-2">
         {notes.map((note, i) => (
-          <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">-</span>
-            {note}
-          </li>
+          <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+              {i + 1}
+            </span>
+            <p className="text-sm text-slate-700 flex-1 leading-relaxed">{note}</p>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 };
@@ -474,12 +525,10 @@ const CategoryDetail = ({ details, isExpanded }) => {
   const getAllNotes = () => {
     const notes = [];
     
-    // Jika ada description text, tambahkan sebagai catatan pertama
     if (details.text) {
       notes.push(details.text);
     }
     
-    // Tambahkan notes yang sudah ada
     if (details.notes && details.notes.length > 0) {
       notes.push(...details.notes);
     }
@@ -495,18 +544,17 @@ const CategoryDetail = ({ details, isExpanded }) => {
       {allNotes.length > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
           <h4 className="text-sm font-semibold text-blue-700 mb-2">Catatan</h4>
-          <ul className="space-y-1">
+          <ol className="space-y-1 pl-5" style={{ listStyleType: 'decimal' }}>
             {allNotes.map((note, i) => (
-              <li key={i} className="text-sm text-blue-800 flex items-start gap-2">
-                <span className="text-blue-500 mt-0.5">-</span>
+              <li key={i} className="text-sm text-blue-800">
                 {note}
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
       
-      {/* Risks section (for Etika) - displayed at top */}
+      {/* Risks section (for Etika) */}
       {details.risks?.length > 0 && (
         <RisksSection risks={details.risks} />
       )}
@@ -516,7 +564,7 @@ const CategoryDetail = ({ details, isExpanded }) => {
         <StrengthsSection strengths={details.strengths} />
       )}
       
-      {/* Weaknesses - with special rendering */}
+      {/* Weaknesses - KEMBALI KE TAMPILAN SEMULA */}
       {details.weaknesses?.length > 0 && (
         <CollapsibleWeaknessList
           title="Kelemahan"
