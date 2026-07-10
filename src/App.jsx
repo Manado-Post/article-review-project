@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import logo from "./assets/logo.webp";
+import mdopostLogo from "./assets/logo-mdopost.png";
+import manadoPostWordmark from "./assets/logo.webp";
 
 // ============================================
 // MISSING UI COMPONENTS
@@ -7,12 +8,20 @@ import logo from "./assets/logo.webp";
 
 // Masthead with logo and title
 const Masthead = () => (
-  <header className="mb-8 flex items-center gap-4">
-    <img src={logo} alt="Logo" className="h-15 w-52 rounded-xl object-contain" />
-    <div>
-      <h2 className="text-lg font-semibold text-blue-950">Article Quality Analyzer</h2>
-
+  <header className="mb-6 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
+    <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+      <img
+        src={mdopostLogo}
+        alt="MP Logo"
+        className="h-11 w-11 flex-shrink-0 rounded-xl object-contain sm:h-14 sm:w-14"
+      />
+      <img
+        src={manadoPostWordmark}
+        alt="ManadoPost.id"
+        className="h-12 w-auto object-contain sm:h-14"
+      />
     </div>
+    <h2 className="text-sm font-semibold text-blue-950 sm:text-base">Article Quality Analyzer</h2>
   </header>
 );
 
@@ -81,10 +90,16 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
 };
 
 // Category overview strip with expandable panels
-const CategoryOverviewStrip = ({ details, activeCategory, onSelect }) => {
+const CategoryOverviewStrip = ({ details, activeCategory, onSelect, layout = "grid" }) => {
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div
+        className={
+          layout === "sidebar"
+            ? "grid grid-cols-2 gap-2 lg:grid-cols-1"
+            : "grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+        }
+      >
         {details?.map((category) => (
           <ScoreCard
             key={category.name}
@@ -934,15 +949,15 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 text-blue-950">
-      <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 lg:px-10">
+      <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
         <Masthead />
 
-        <div className="mb-8 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200/80">
+        <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200/80 sm:mb-8 sm:p-8">
           <div className="mb-6 max-w-3xl">
             <p className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
               AI Artikel Analyzer
             </p>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-blue-950">
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-blue-950 sm:text-4xl">
               Analisis kualitas artikel secara cepat
             </h1>
             <p className="mt-3 text-base leading-7 text-slate-600">
@@ -1079,11 +1094,11 @@ function App() {
 
         {result && (
           <section className="space-y-6">
-            {/* Result Header */}
-            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
+            {/* Result Header - always full width, always first */}
+            <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200 sm:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
                       Hasil Analisis
                     </p>
@@ -1098,7 +1113,7 @@ function App() {
                       </span>
                     )}
                   </div>
-                  <h2 className="mt-3 text-3xl font-semibold text-blue-950">
+                  <h2 className="mt-3 text-2xl font-semibold text-blue-950 sm:text-3xl">
                     Skor artikel: {result.overallScore}
                   </h2>
                   {result.sourceDomain && (
@@ -1111,17 +1126,21 @@ function App() {
                   </p>
                 </div>
                 <span
-                  className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${badgeColor(result.overallScore)}`}
+                  className={`inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold ${badgeColor(result.overallScore)}`}
                 >
                   {verdictFromScore(result.overallScore)}
                 </span>
               </div>
             </div>
 
+            {/* Two-column area: sidebar (score) shows right after header on mobile, sits on the right on desktop */}
+            <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
+            {/* Main column */}
+            <div className="order-2 space-y-6 lg:order-1">
             {/* Verification Flags Section */}
             {result.verificationFlags &&
               result.verificationFlags.length > 0 && (
-                <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-8">
+                <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-5 sm:p-8">
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       <WarningGlyph className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
@@ -1148,23 +1167,6 @@ function App() {
                   </div>
                 </div>
               )}
-
-            {/* Category Overview Strip: skor semua kategori sekilas pandang */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-500">
-                  Skor per Kategori
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Klik kategori untuk detail lengkap
-                </p>
-              </div>
-              <CategoryOverviewStrip
-                details={result.details}
-                activeCategory={expandedCategory}
-                onSelect={toggleCategory}
-              />
-            </div>
 
             {/* Highlights Section */}
             {result.highlights && result.highlights.length > 0 && (
@@ -1374,6 +1376,28 @@ function App() {
                   )}
                 </div>
               )}
+            </div>
+            </div>
+
+            {/* Sidebar: Skor per Kategori - shows right after header on mobile, right side on desktop */}
+            <aside className="order-1 lg:sticky lg:top-6 lg:order-2">
+              <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200 sm:p-6">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-500">
+                    Skor per Kategori
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Klik kategori untuk detail lengkap
+                  </p>
+                </div>
+                <CategoryOverviewStrip
+                  details={result.details}
+                  activeCategory={expandedCategory}
+                  onSelect={toggleCategory}
+                  layout="sidebar"
+                />
+              </div>
+            </aside>
             </div>
           </section>
         )}
