@@ -717,6 +717,219 @@ const VerificationFlagList = ({ flags, extractedBody }) => {
   );
 };
 
+// ============================================================================
+// HOOK METER - Storytelling Quality Component
+// ============================================================================
+
+const HookMeterBadge = ({ score }) => {
+  const getColor = (score) => {
+    if (score >= 85) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Excellent' };
+    if (score >= 70) return { bg: 'bg-green-100', text: 'text-green-700', label: 'Good' };
+    if (score >= 55) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Average' };
+    if (score >= 40) return { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Below Avg' };
+    return { bg: 'bg-red-100', text: 'text-red-700', label: 'Poor' };
+  };
+  
+  const colors = getColor(score || 0);
+  
+  return (
+    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${colors.bg} ${colors.text}`}>
+      {score}
+    </span>
+  );
+};
+
+const MetricBar = ({ label, score, strength, weakness, icon }) => (
+  <div className="mb-4 last:mb-0">
+    <div className="mb-1 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-sm font-medium text-slate-700">{label}</span>
+      </div>
+      <span className="text-sm font-semibold text-slate-600">{score}</span>
+    </div>
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+      <div 
+        className={`h-full rounded-full transition-all ${
+          score >= 70 ? 'bg-emerald-400' : 
+          score >= 50 ? 'bg-amber-400' : 'bg-red-400'
+        }`}
+        style={{ width: `${score}%` }}
+      />
+    </div>
+    {strength && (
+      <p className="mt-1 text-xs text-emerald-600">+ {strength}</p>
+    )}
+    {weakness && (
+      <p className="mt-0.5 text-xs text-red-500">- {weakness}</p>
+    )}
+  </div>
+);
+
+const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (loading) {
+    return (
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <span className="text-sm text-slate-500">Menganalisis storytelling quality...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!hookMeter || hookMeter.skipped) {
+    return (
+      <div className="rounded-3xl bg-slate-50 p-6 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center gap-2 text-slate-500">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm">Hook Meter tidak berlaku untuk artikel ini</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">{hookMeter?.reason || 'Artikel terlalu pendek atau bukan tipe naratif'}</p>
+      </div>
+    );
+  }
+  
+  const getLevelColor = (level) => {
+    switch (level) {
+      case 'excellent': return 'text-emerald-600';
+      case 'good': return 'text-green-600';
+      case 'average': return 'text-amber-600';
+      case 'below_average': return 'text-orange-600';
+      case 'poor': return 'text-red-600';
+      default: return 'text-slate-600';
+    }
+  };
+  
+  return (
+    <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between p-6 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-blue-950">Hook Meter</h3>
+            <p className="text-xs text-slate-500">Storytelling Quality</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <HookMeterBadge score={hookMeter.score} />
+            <p className={`mt-1 text-xs font-medium ${getLevelColor(hookMeter.level)}`}>
+              {hookMeter.level === 'excellent' ? 'Excellent' :
+               hookMeter.level === 'good' ? 'Good' :
+               hookMeter.level === 'average' ? 'Average' :
+               hookMeter.level === 'below_average' ? 'Below Average' : 'Poor'}
+            </p>
+          </div>
+          <svg className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+      
+      {expanded && (
+        <div className="border-t border-slate-100 px-6 pb-6 pt-4">
+          {/* Summary */}
+          <p className="mb-4 text-sm text-slate-600">{hookMeter.summary}</p>
+          
+          {/* Metrics */}
+          <div className="mb-4 rounded-xl bg-slate-50 p-4">
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Metrics</h4>
+            
+            <MetricBar 
+              label="Opening Hook" 
+              score={hookMeter.metrics?.openingHook?.score || 0}
+              strength={hookMeter.metrics?.openingHook?.strength}
+              weakness={hookMeter.metrics?.openingHook?.weakness}
+              icon={
+                <svg className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              }
+            />
+            
+            <MetricBar 
+              label="Character Presence" 
+              score={hookMeter.metrics?.characterPresence?.score || 0}
+              strength={hookMeter.metrics?.characterPresence?.strength}
+              weakness={hookMeter.metrics?.characterPresence?.weakness}
+              icon={
+                <svg className="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              }
+            />
+            
+            <MetricBar 
+              label="Narrative Arc" 
+              score={hookMeter.metrics?.narrativeArc?.score || 0}
+              strength={hookMeter.metrics?.narrativeArc?.strength}
+              weakness={hookMeter.metrics?.narrativeArc?.weakness}
+              icon={
+                <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              }
+            />
+            
+            <MetricBar 
+              label="Sensory Details" 
+              score={hookMeter.metrics?.sensoryDetails?.score || 0}
+              strength={hookMeter.metrics?.sensoryDetails?.strength}
+              weakness={hookMeter.metrics?.sensoryDetails?.weakness}
+              icon={
+                <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              }
+            />
+            
+            <MetricBar 
+              label="Emotional Resonance" 
+              score={hookMeter.metrics?.emotionalResonance?.score || 0}
+              strength={hookMeter.metrics?.emotionalResonance?.strength}
+              weakness={hookMeter.metrics?.emotionalResonance?.weakness}
+              icon={
+                <svg className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              }
+            />
+          </div>
+          
+          {/* Suggestions */}
+          {hookMeter.suggestions && hookMeter.suggestions.length > 0 && (
+            <div className="rounded-xl bg-purple-50 p-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-600">Suggestions</h4>
+              <ul className="space-y-1">
+                {hookMeter.suggestions.map((suggestion, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-purple-700">
+                    <span className="mt-1 text-purple-400">•</span>
+                    <span>{suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
@@ -735,6 +948,10 @@ function App() {
   
   // Highlights collapse state
   const [highlightsExpanded, setHighlightsExpanded] = useState(false);
+  
+  // Hook Meter state
+  const [hookMeter, setHookMeter] = useState(null);
+  const [hookMeterLoading, setHookMeterLoading] = useState(false);
 
   const words = useMemo(
     () => text.trim().split(/\s+/).filter(Boolean).length,
@@ -915,6 +1132,7 @@ function App() {
     setResult(null);
     setExpandedCategory(null);
     setRevisionResult(null);
+    setHookMeter(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -934,6 +1152,27 @@ function App() {
 
       const data = await response.json();
       setResult(data);
+      
+      // Analyze Hook Meter separately
+      setHookMeterLoading(true);
+      try {
+        const hookMeterResponse = await fetch("/api/hook-meter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: data.extracted_body || text
+          }),
+        });
+        
+        if (hookMeterResponse.ok) {
+          const hookMeterData = await hookMeterResponse.json();
+          setHookMeter(hookMeterData);
+        }
+      } catch (hookErr) {
+        console.log("Hook Meter analysis skipped:", hookErr.message);
+      } finally {
+        setHookMeterLoading(false);
+      }
     } catch (err) {
       setError(err.message || "Terjadi kesalahan");
     } finally {
@@ -1233,6 +1472,11 @@ function App() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Hook Meter Section */}
+            {(hookMeter || hookMeterLoading) && (
+              <HookMeterCard hookMeter={hookMeter} loading={hookMeterLoading} />
             )}
 
             {/* Auto-Revisi Section */}

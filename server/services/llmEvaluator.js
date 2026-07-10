@@ -114,6 +114,231 @@ export const evaluateWithLLM = async (articleText, retries = 2) => {
 };
 
 // ============================================================================
+// ARTICLE CLASSIFICATION
+// ============================================================================
+
+const ARTICLE_TYPES = {
+  NARRATIVE_ELIGIBLE: ['feature', 'deep_dive', 'long_form', 'human_interest', 'narrative', 'profile', 'biography', 'investigative'],
+  SKIP: ['straight_news', 'breaking', 'briefing', 'tips', 'how_to', 'data_dump', 'press_release', 'opinion', 'quick_update']
+};
+
+const CLASSIFY_SYSTEM_PROMPT = `Anda klasifikator artikel berita Indonesia.
+
+TUGAS: Klasifikasikan tipa artikel dan tentukan apakah eligible untuk penilaian storytelling ("Hook Meter").
+
+JENIS ARTIKEL:
+- feature: Artikel feature dengan angle cerita, emosional
+- deep_dive: Eksplorasi topik mendalam, komprehensif
+- long_form: Artikel panjang (>1000 kata)
+- human_interest: Fokus pada orang/orang-orang
+- narrative: Narrative journalism dengan arc cerita
+- profile: Profil seseorang atau organisasi
+- biography: Biografi seseorang
+- investigative: Laporan investigasi
+- straight_news: Berita straight (inverted pyramid, fakta langsung)
+- breaking: Berita singkat, urgent
+- briefing: Pemberitahuan singkat
+- tips: Tips atau panduan langkah
+- how_to: Tutorial
+- data_dump: Artikel berbasis data/fakta semata
+- press_release: Rilis pers
+- opinion: Opini redaksi
+- quick_update: Update singkat
+
+ATURAN ELIGIBILITY:
+- Hook Meter diterapkan JIKA: wordCount >= 400 DAN type IN [feature, deep_dive, long_form, human_interest, narrative, profile, biography, investigative]
+- Hook Meter DITOLAK JIKA: wordCount < 400 ATAU type IN [straight_news, breaking, briefing, tips, how_to, data_dump, press_release, opinion, quick_update]
+
+BALAS HANYA JSON valid:
+{"type":"nama_tipe","subtype":"subtipe_jika_ada","wordCount":500,"eligibleForHookMeter":true,"reason":"penjelasan_singkat"}`;
+
+export const classifyArticle = async (text, retries = 2) => {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  
+  // Quick check for obvious types based on content patterns
+  const quickChecks = {
+    wordCount,
+    hasHowToPatterns: /\d+\s+ langkah|caranya\s*:|tips\s*:|tutorial/i.test(text),
+    isStraightNews: /^([A-Z][a-z]+\s+){1,3}(menyatakan|mengatakan|menambahkan|melaporkan)/.test(text) && wordCount < 400,
+    hasStepByStep: /\d+\.\s+[A-Z]|langkah\s+\d+|pertama|kedua|ketiga/i.test(text)
+  };
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch("https://gateway.olagon.site/anthropic/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 300,
+          system: CLASSIFY_SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: `Klasifikasikan artikel ini:\n"""\n${text.slice(0, 2000)}\n"""` }
+          ],
+        }),
+      });
+
+      if (response.status === 529 || response.status === 429) {
+        if (attempt < retries) {
+          await sleep((attempt + 1) * 2000);
+          continue;
+        }
+        throw new Error("API overload. Coba lagi nanti.");
+      }
+
+      if (!response.ok) {
+        throw new Error(`Claude API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const textBlock = data.content?.find((c) => c.type === "text");
+      if (!textBlock) throw new Error("Respons LLM tidak mengandung teks.");
+
+      const result = JSON.parse(textBlock.text.trim());
+      return {
+        ...result,
+        wordCount
+      };
+    } catch (err) {
+      if (attempt === retries) {
+        // Fallback: assume not eligible
+        return {
+          type: 'unknown',
+          wordCount,
+          eligibleForHookMeter: false,
+          reason: 'Klasifikasi gagal, default tidak eligible'
+        };
+      }
+      await sleep((attempt + 1) * 1000);
+    }
+  }
+};
+
+// ============================================================================
+// HOOK METER - STORYTELLING ANALYSIS
+// ============================================================================
+
+const HOOK_METER_PROMPT = `Anda redaktur senior media Indonesia dengan keahlian storytelling journalism.
+
+TUGAS: Analisis kualitas storytelling artikel dengan 5 dimensi.
+
+DIMENSI PENILAIAN:
+
+1. OPENING HOOK (25% bobot)
+   - Opening sentence menarik perhatian?
+   - Ada pertanyaan, statistik mengejutkan, atau scene langsung engage?
+   - Lead langsung ke inti berita?
+
+2. CHARACTER PRESENCE (20% bobot)
+   - Ada orang nyata dengan perspektif/kutipan langsung?
+   - Ada karakter yang bisa dibayangkan pembaca?
+   - Sudut pandang manusia (bukan hanya data/fakta)?
+
+3. NARRATIVE ARC (20% bobot)
+   - Ada konflik atau masalah yang dibangun?
+   - Ada perkembangan cerita dari awal ke akhir?
+   - Ada resolusi atau lessons learned?
+
+4. SENSORY DETAILS (15% bobot)
+   - Ada deskripsi spesifik (waktu, tempat, suasana)?
+   - Atau hanya statement abstrak/generic?
+   - Ada details yang membuat pembaca "see the scene"?
+
+5. EMOTIONAL RESONANCE (20% bobot)
+   - Bisa membangun emosi pembaca (empati, curiosity, urgency)?
+   - Word choice evocative atau flat?
+   - Ada element yang relatable untuk audiens?
+
+SCORING: 0-100 per dimensi, 0-100 total
+
+BALAS HANYA JSON valid:
+{
+  "score": 0-100,
+  "level": "excellent|good|average|below_average|poor",
+  "metrics": {
+    "openingHook": {"score": 0-100, "strength": "kekuatan di dimensi ini", "weakness": "kelemahan di dimensi ini"},
+    "characterPresence": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "narrativeArc": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "sensoryDetails": {"score": 0-100, "strength": "...", "weakness": "..."},
+    "emotionalResonance": {"score": 0-100, "strength": "...", "weakness": "..."}
+  },
+  "summary": "ringkasan keseluruhan storytelling quality",
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+}`;
+
+export const analyzeHookMeter = async (text, retries = 2) => {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  
+  // Skip if article too short
+  if (wordCount < 400) {
+    return {
+      skipped: true,
+      reason: 'Artikel terlalu pendek untuk storytelling analysis',
+      score: null
+    };
+  }
+  
+  // Truncate for API efficiency
+  let truncatedText = text;
+  if (text.length > 5000) {
+    truncatedText = text.slice(0, 5000);
+  }
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch("https://gateway.olagon.site/anthropic/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 800,
+          system: HOOK_METER_PROMPT,
+          messages: [
+            { role: "user", content: `Analisis storytelling artikel ini:\n"""\n${truncatedText}\n"""` }
+          ],
+        }),
+      });
+
+      if (response.status === 529 || response.status === 429) {
+        if (attempt < retries) {
+          await sleep((attempt + 1) * 2000);
+          continue;
+        }
+        throw new Error("API overload. Coba lagi nanti.");
+      }
+
+      if (!response.ok) {
+        throw new Error(`Claude API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const textBlock = data.content?.find((c) => c.type === "text");
+      if (!textBlock) throw new Error("Respons LLM tidak mengandung teks.");
+
+      const result = JSON.parse(textBlock.text.trim());
+      return {
+        ...result,
+        wordCount,
+        analyzedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      if (attempt === retries) {
+        throw err;
+      }
+      await sleep((attempt + 1) * 1000);
+    }
+  }
+};
+
+// ============================================================================
 // AUTO-REVISION SERVICE
 // ============================================================================
 
