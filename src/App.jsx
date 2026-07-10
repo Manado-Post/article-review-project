@@ -789,29 +789,28 @@ const HookMeterBadge = ({ score }) => {
   );
 };
 
-const MetricBar = ({ label, score, strength, weakness, icon }) => (
+const MetricBar = ({ label, score, strength, weakness }) => (
   <div className="mb-4 last:mb-0">
     <div className="mb-1 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        {icon}
+        <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
         <span className="text-sm font-medium text-slate-700">{label}</span>
       </div>
       <span className="text-sm font-semibold text-slate-600">{score}</span>
     </div>
     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
       <div 
-        className={`h-full rounded-full transition-all ${
-          score >= 70 ? 'bg-emerald-400' : 
-          score >= 50 ? 'bg-amber-400' : 'bg-red-400'
-        }`}
+        className="h-full rounded-full bg-slate-500 transition-all"
         style={{ width: `${score}%` }}
       />
     </div>
     {strength && (
-      <p className="mt-1 text-xs text-emerald-600">+ {strength}</p>
+      <p className="mt-1 text-xs text-slate-600">+ {strength}</p>
     )}
     {weakness && (
-      <p className="mt-0.5 text-xs text-red-500">- {weakness}</p>
+      <p className="mt-0.5 text-xs text-slate-500">- {weakness}</p>
     )}
   </div>
 );
@@ -860,13 +859,17 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-6 text-left"
+        className="flex w-full items-center justify-between p-0.5 text-left"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+          <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-white-50 p-0.5">
+            <img
+              src={mdopostLogo}
+              alt="MP Logo"
+              width={100}
+              height={100}
+              className="object-contain"
+            />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-blue-950">Hook Meter</h3>
@@ -910,11 +913,11 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
             
             {hookMeter.metrics && Object.entries(hookMeter.metrics).map(([key, metric]) => {
               const labels = {
-                openingHook: { label: 'Opening Hook', icon: 'text-purple-500' },
-                characterPresence: { label: 'Character Presence', icon: 'text-pink-500' },
-                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-500' },
-                sensoryDetails: { label: 'Sensory Details', icon: 'text-emerald-500' },
-                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-amber-500' },
+                openingHook: { label: 'Opening Hook', icon: 'text-blue-900' },
+                characterPresence: { label: 'Character Presence', icon: 'text-blue-900' },
+                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-900' },
+                sensoryDetails: { label: 'Sensory Details', icon: 'text-blue-900' },
+                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-blue-900' },
               };
               const info = labels[key] || { label: key, icon: 'text-slate-500' };
               return (
@@ -943,8 +946,8 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
           
           {/* Weakness Summary */}
           {hookMeter.metrics && Object.values(hookMeter.metrics).some(m => m?.weakness) && (
-            <div className="mb-4 rounded-xl bg-red-50 p-4">
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">Kelemahan Storytelling</h4>
+            <div className="mb-4 rounded-xl bg-slate-50 p-4 border border-slate-200">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Kelemahan Storytelling</h4>
               <ul className="space-y-1.5">
                 {Object.entries(hookMeter.metrics).map(([key, metric]) => {
                   const labels = {
@@ -956,10 +959,10 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
                   };
                   if (!metric?.weakness) return null;
                   return (
-                    <li key={key} className="flex items-start gap-2 text-sm text-red-700">
-                      <span className="mt-1 text-red-400">•</span>
+                    <li key={key} className="flex items-start gap-2 text-sm text-slate-600">
+                      <span className="mt-1 text-slate-400">•</span>
                       <div>
-                        <span className="font-medium">{labels[key] || key}:</span>{' '}
+                        <span className="font-medium text-slate-700">{labels[key] || key}:</span>{' '}
                         <span>{metric.weakness}</span>
                       </div>
                     </li>
@@ -970,13 +973,16 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
           )}
           
           {/* Suggestions */}
+          {/* Suggestions */}
           {hookMeter.suggestions && hookMeter.suggestions.length > 0 && (
-            <div className="rounded-xl bg-purple-50 p-4">
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-600">Suggestions</h4>
+            <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Suggestions</h4>
               <ul className="space-y-1">
                 {hookMeter.suggestions.map((suggestion, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-purple-700">
-                    <span className="mt-1 text-purple-400">•</span>
+                  <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                    <svg className="h-4 w-4 flex-shrink-0 text-slate-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
                     <span>{suggestion}</span>
                   </li>
                 ))}
