@@ -550,7 +550,7 @@ const SpacingIssueBox = ({ issue }) => {
       
       {issue.recommendation && (
         <p className="text-xs text-slate-500 mt-2 italic">
-          💡 {toString(issue.recommendation)}
+          <span className="text-blue-600 font-medium not-italic">Saran:</span> {typeof issue.recommendation === 'string' ? issue.recommendation : issue.recommendation?.text || ''}
         </p>
       )}
     </div>
@@ -587,7 +587,7 @@ const TrailingIssueBox = ({ issue }) => {
       
       {issue.recommendation && (
         <p className="text-xs text-slate-500 mt-2 italic">
-          💡 {toString(issue.recommendation)}
+          <span className="text-blue-600 font-medium not-italic">Saran:</span> {typeof issue.recommendation === 'string' ? issue.recommendation : issue.recommendation?.text || ''}
         </p>
       )}
     </div>
@@ -616,45 +616,84 @@ const flagStyles = {
   },
 };
 
-const VerificationFlagList = ({ flags }) => {
+const VerificationFlagList = ({ flags, extractedBody }) => {
   if (!flags || flags.length === 0) return null;
+
+  // Helper to find the sentence containing the flagged text
+  const findSentenceWithFlag = (flag) => {
+    if (!extractedBody) return null;
+    
+    const searchText = flag.text || flag.keyword || flag.context || '';
+    if (!searchText) return null;
+    
+    // Split into sentences (Indonesian punctuation)
+    const sentences = extractedBody.split(/[.!?]+/);
+    for (const sentence of sentences) {
+      const trimmedSentence = sentence.trim();
+      if (trimmedSentence.length > 10) {
+        // Check if sentence contains the flagged text or keyword
+        if (flag.keyword && trimmedSentence.toLowerCase().includes(flag.keyword.toLowerCase())) {
+          return trimmedSentence;
+        }
+        if (flag.text && trimmedSentence.toLowerCase().includes(flag.text.toLowerCase().slice(0, 20))) {
+          return trimmedSentence;
+        }
+      }
+    }
+    // Fallback: return first sentence with any keyword match
+    return null;
+  };
 
   return (
     <div className="space-y-3">
       {flags.map((flag, idx) => {
         const style = flagStyles[flag.priority] || flagStyles.medium;
+        const flaggedSentence = findSentenceWithFlag(flag);
         return (
           <div
             key={idx}
-            className={`flex items-start gap-3 rounded-xl p-3 text-sm ${style.class}`}
+            className={`rounded-xl p-3 text-sm ${style.class}`}
           >
-            <Dot className={`${style.dot} mt-2`} />
-            <div className="min-w-0 flex-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {style.label}
-              </span>
-              <p className="mt-1 text-slate-700">
-                {flag.text && <span>&ldquo;{flag.text}&rdquo; </span>}
-                {flag.attributedTo && (
-                  <span className="text-slate-500">
-                    &mdash; {flag.attributedTo}
-                  </span>
+            <div className="flex items-start gap-3">
+              <Dot className={`${style.dot} mt-2`} />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {style.label}
+                </span>
+                
+                {/* Show the actual sentence from article */}
+                {flaggedSentence && (
+                  <div className="mt-2 rounded-lg bg-white/80 p-2 border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-1">Kalimat dalam artikel:</p>
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                      {flaggedSentence}.
+                    </p>
+                  </div>
                 )}
-                {flag.context && !flag.text && (
-                  <span>{flag.context.slice(0, 100)}</span>
-                )}
-                {flag.keyword && (
-                  <span className="font-semibold text-red-700">
-                    &ldquo;{flag.keyword}&rdquo;
-                  </span>
-                )}
-                {flag.subject && <span>{flag.subject}</span>}
-              </p>
-              <Recommendation text={flag.recommendation} />
-              <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 text-xs text-slate-500">
-                <input type="checkbox" className="rounded" />
-                <span>Sudah diverifikasi</span>
-              </label>
+                
+                <p className="mt-2 text-slate-700">
+                  {flag.text && <span>&ldquo;{flag.text}&rdquo; </span>}
+                  {flag.attributedTo && (
+                    <span className="text-slate-500">
+                      &mdash; {flag.attributedTo}
+                    </span>
+                  )}
+                  {flag.context && !flag.text && (
+                    <span>{flag.context.slice(0, 100)}</span>
+                  )}
+                  {flag.keyword && (
+                    <span className="font-semibold text-red-700">
+                      &ldquo;{flag.keyword}&rdquo;
+                    </span>
+                  )}
+                  {flag.subject && <span>{flag.subject}</span>}
+                </p>
+                <Recommendation text={flag.recommendation} />
+                <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+                  <input type="checkbox" className="rounded" />
+                  <span>Sudah diverifikasi</span>
+                </label>
+              </div>
             </div>
           </div>
         );
@@ -672,6 +711,15 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [expandedCategory, setExpandedCategory] = useState(null);
+  
+  // Revision states
+  const [reviseCategories, setReviseCategories] = useState(['passive', 'puebi']);
+  const [revising, setRevising] = useState(false);
+  const [revisionResult, setRevisionResult] = useState(null);
+  const [revisionError, setRevisionError] = useState("");
+  
+  // Highlights collapse state
+  const [highlightsExpanded, setHighlightsExpanded] = useState(false);
 
   const words = useMemo(
     () => text.trim().split(/\s+/).filter(Boolean).length,
@@ -680,12 +728,178 @@ function App() {
 
   const toggleCategory = (name) =>
     setExpandedCategory((prev) => (prev === name ? null : name));
+    
+  // Handle category checkbox toggle
+  const toggleRevisionCategory = (categoryId) => {
+    setReviseCategories(prev => 
+      prev.includes(categoryId)
+        ? prev.filter(c => c !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+  
+  // Word-level LCS diff
+  const computeDiff = (original, revised) => {
+    if (!original || !revised) return [];
+    const ow = original.split(/(\s+)/);
+    const rw = revised.split(/(\s+)/);
+    const m = ow.length, n = rw.length;
+    const lcs = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        lcs[i][j] = ow[i - 1] === rw[j - 1] 
+          ? lcs[i - 1][j - 1] + 1 
+          : Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+    const stack = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && ow[i - 1] === rw[j - 1]) { 
+        stack.push({ text: ow[i - 1], changed: false }); i--; j--; 
+      }
+      else if (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) { 
+        stack.push({ text: rw[j - 1], changed: true }); j--; 
+      }
+      else { i--; }
+    }
+    return stack.reverse();
+  };
+
+  // Helper functions for frontend regex fixes
+  const fixSpacing = (text) => {
+    const original = text;
+    const fixed = text.replace(/  +/g, ' ');
+    const changes = [];
+    if (original !== fixed) {
+      const regex = /  +/g;
+      let match;
+      while ((match = regex.exec(original)) !== null) {
+        changes.push({
+          type: 'spacing',
+          original: match[0],
+          revised: ' ',
+          reason: `Ditemukan ${match[0].length - 1} spasi berlebih`
+        });
+      }
+    }
+    return { text: fixed, changes };
+  };
+
+  const fixTrailing = (text) => {
+    const original = text;
+    const fixed = text.replace(/[ \t]+$/gm, '');
+    const changes = [];
+    if (original !== fixed) {
+      const lines = original.split('\n');
+      lines.forEach((line, idx) => {
+        const trimmed = line.replace(/[ \t]+$/, '');
+        if (line !== trimmed) {
+          changes.push({
+            type: 'trailing',
+            original: line.slice(-(line.length - trimmed.length)),
+            revised: '(dihapus)',
+            reason: `Spasi trailing di baris ${idx + 1}`
+          });
+        }
+      });
+    }
+    return { text: fixed, changes };
+  };
+  
+  // Handle revision request
+  const handleRevise = async () => {
+    if (reviseCategories.length === 0) {
+      setRevisionError("Pilih minimal satu kategori untuk direvisi.");
+      return;
+    }
+    
+    setRevisionError("");
+    setRevising(true);
+    setRevisionResult(null);
+    
+    try {
+      const sourceText = result?.extracted_body || text;
+      let finalText = sourceText;
+      let allChanges = [];
+      
+      // Handle spacing/trailing in frontend (regex-based, no API needed)
+      const frontendOnlyCategories = ['spacing', 'trailing'];
+      const llmCategories = ['passive', 'complex', 'formal', 'puebi', 'struktur', 'seo'];
+      const onlyFrontend = reviseCategories.every(c => frontendOnlyCategories.includes(c));
+      
+      if (onlyFrontend) {
+        // Only spacing/trailing - no API call needed
+        if (reviseCategories.includes('spacing')) {
+          const spacingResult = fixSpacing(finalText);
+          finalText = spacingResult.text;
+          allChanges = allChanges.concat(spacingResult.changes);
+        }
+        if (reviseCategories.includes('trailing')) {
+          const trailingResult = fixTrailing(finalText);
+          finalText = trailingResult.text;
+          allChanges = allChanges.concat(trailingResult.changes);
+        }
+        
+        setRevisionResult({
+          revised_text: finalText,
+          changes: allChanges,
+          wordCount: {
+            before: sourceText.split(/\s+/).filter(Boolean).length,
+            after: finalText.split(/\s+/).filter(Boolean).length
+          }
+        });
+      } else {
+        // Call API for LLM categories (includes struktur & seo)
+        const apiCategories = reviseCategories.filter(c => llmCategories.includes(c));
+        
+        const response = await fetch("/api/revise", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: sourceText,
+            categories: apiCategories
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Gagal melakukan revisi");
+        }
+        
+        const data = await response.json();
+        finalText = data.revised_text;
+        allChanges = [...(data.changes || [])];
+        
+        // Apply frontend fixes after LLM revision
+        if (reviseCategories.includes('spacing')) {
+          const spacingResult = fixSpacing(finalText);
+          finalText = spacingResult.text;
+          allChanges = allChanges.concat(spacingResult.changes);
+        }
+        if (reviseCategories.includes('trailing')) {
+          const trailingResult = fixTrailing(finalText);
+          finalText = trailingResult.text;
+          allChanges = allChanges.concat(trailingResult.changes);
+        }
+        
+        setRevisionResult({
+          ...data,
+          revised_text: finalText,
+          changes: allChanges
+        });
+      }
+    } catch (err) {
+      setRevisionError(err.message || "Terjadi kesalahan saat revisi");
+    } finally {
+      setRevising(false);
+    }
+  };
 
   const analyze = async () => {
     setError("");
     setLoading(true);
     setResult(null);
     setExpandedCategory(null);
+    setRevisionResult(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -925,7 +1139,7 @@ function App() {
                       {result.verificationFlags.length}
                     </span>
                   </div>
-                  <VerificationFlagList flags={result.verificationFlags} />
+                  <VerificationFlagList flags={result.verificationFlags} extractedBody={result.extracted_body} />
                   <div className="mt-4 border-t border-amber-200 pt-4">
                     <button className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 hover:text-amber-950">
                       <CheckGlyph className="h-4 w-4" />
@@ -954,40 +1168,213 @@ function App() {
 
             {/* Highlights Section */}
             {result.highlights && result.highlights.length > 0 && (
-              <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
-                <h3 className="text-xl font-semibold text-blue-950">
-                  Sorotan Kalimat
-                </h3>
-                <div className="mt-6 grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
-                  {result.highlights.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`rounded-3xl border p-4 ${
-                        item.type === "bad"
-                          ? "border-rose-200 bg-rose-50"
-                          : item.type === "warn"
-                            ? "border-amber-200 bg-amber-50"
-                            : "border-emerald-200 bg-emerald-50"
-                      }`}
-                    >
-                      <p className="font-semibold text-blue-950">
-                        {item.type === "bad"
-                          ? "Perlu perbaikan serius"
-                          : item.type === "warn"
-                            ? "Perlu perhatian"
-                            : "Baik"}
-                      </p>
-                      <p className="mt-2 text-slate-700">{item.text}</p>
-                      {item.note && (
-                        <p className="mt-2 text-sm text-slate-500">
-                          {item.note}
-                        </p>
-                      )}
+              <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
+                <button
+                  type="button"
+                  onClick={() => setHighlightsExpanded(!highlightsExpanded)}
+                  className="flex w-full items-center justify-between p-6 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-blue-950">
+                      Sorotan Kalimat
+                    </h3>
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      {result.highlights.length}
+                    </span>
+                    {/* Info tooltip */}
+                    <span className="group relative">
+                      <svg className="h-4 w-4 text-slate-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-64 rounded-lg bg-slate-800 p-3 text-xs text-white shadow-lg group-hover:block z-10">
+                        <p className="font-medium mb-1">Tentang Sorotan Kalimat</p>
+                        <p className="text-slate-300">Sorotan Kalimat menampilkan kalimat-kalimat yang perlu perhatian khusus berdasarkan hasil analisis, seperti kalimat yang terlalu panjang, ambigu, atau berpotensi menimbulkan masalah etika.</p>
+                        <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                      </div>
+                    </span>
+                  </div>
+                  <ChevronIcon 
+                    className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
+                  />
+                </button>
+                
+                {highlightsExpanded && (
+                  <div className="border-t border-slate-100 px-6 pb-6 pt-2">
+                    <div className="grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
+                      {result.highlights.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className={`rounded-3xl border p-4 ${
+                            item.type === "bad"
+                              ? "border-rose-200 bg-rose-50"
+                              : item.type === "warn"
+                                ? "border-amber-200 bg-amber-50"
+                                : "border-emerald-200 bg-emerald-50"
+                          }`}
+                        >
+                          <p className="font-semibold text-blue-950">
+                            {item.type === "bad"
+                              ? "Perlu perbaikan serius"
+                              : item.type === "warn"
+                                ? "Perlu perhatian"
+                                : "Baik"}
+                          </p>
+                          <p className="mt-2 text-slate-700">{item.text}</p>
+                          {item.note && (
+                            <p className="mt-2 text-sm text-slate-500">
+                              {item.note}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Auto-Revisi Section */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
+              <h3 className="text-lg font-semibold text-blue-950 mb-1">
+                Auto-Revisi
+              </h3>
+              <p className="text-sm text-slate-500 mb-4">
+                Pilih kategori yang ingin diperbaiki, lalu klik Revisi Sekarang.
+              </p>
+              
+              {/* Category checkboxes */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                {[
+                  { id: 'passive', label: 'Kalimat Pasif', desc: 'Ubah ke kalimat aktif' },
+                  { id: 'complex', label: 'Kalimat Panjang', desc: 'Sederhanakan' },
+                  { id: 'formal', label: 'Kata Formal', desc: 'Variasikan kata' },
+                  { id: 'puebi', label: 'Ejaan & PUEBI', desc: 'Perbaiki ejaan' },
+                  { id: 'spacing', label: 'Spasi Ganda', desc: '2 spasi jadi 1' },
+                  { id: 'trailing', label: 'Spasi Akhir', desc: 'Hapus trailing' },
+                  { id: 'struktur', label: 'Struktur & Format', desc: 'Fix judul, lead, heading', badge: 'LLM' },
+                  { id: 'seo', label: 'SEO', desc: 'Fix keyword, paragraf mati', badge: 'LLM' },
+                ].map(cat => (
+                  <label
+                    key={cat.id}
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                      reviseCategories.includes(cat.id)
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={reviseCategories.includes(cat.id)}
+                      onChange={() => toggleRevisionCategory(cat.id)}
+                      className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-slate-700">{cat.label}</p>
+                        {cat.badge && (
+                          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
+                            {cat.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">{cat.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {revisionError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                  {revisionError}
+                </div>
+              )}
+              
+              <button
+                type="button"
+                onClick={handleRevise}
+                disabled={revising || reviseCategories.length === 0}
+                className="rounded-xl bg-blue-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {revising ? 'Merevisi...' : 'Revisi Sekarang'}
+              </button>
+              
+              {/* Revision Results */}
+              {revisionResult && (
+                <div className="mt-6 border-t border-slate-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-base font-semibold text-blue-950">
+                      Hasil Revisi
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(revisionResult.revised_text);
+                      }}
+                      className="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                    >
+                      Salin
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-slate-500 mb-3">
+                    {revisionResult.changes?.length || 0} perubahan. 
+                    {revisionResult.wordCount?.before && revisionResult.wordCount?.after && (
+                      <span>{revisionResult.wordCount.before} kata {'->'} {revisionResult.wordCount.after} kata</span>
+                    )}
+                  </p>
+                  
+                  {/* Diff view */}
+                  <div className="mb-4 rounded-xl bg-slate-50 p-4 text-sm leading-relaxed">
+                    <div className="whitespace-pre-wrap">
+                      {computeDiff(result.extracted_body || text, revisionResult.revised_text).map((seg, i) =>
+                        seg.changed
+                          ? <span key={i} className="rounded bg-green-100 px-0.5 text-green-800">{seg.text}</span>
+                          : <span key={i}>{seg.text}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Changes detail */}
+                  {revisionResult.changes && revisionResult.changes.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-slate-700">Detail Perubahan:</p>
+                      {revisionResult.changes.map((change, idx) => (
+                        <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                              change.type === 'passive' ? 'bg-red-100 text-red-700' :
+                              change.type === 'complex' ? 'bg-amber-100 text-amber-700' :
+                              change.type === 'formal' ? 'bg-blue-100 text-blue-700' :
+                              change.type === 'puebi' ? 'bg-cyan-100 text-cyan-700' :
+                              change.type === 'spacing' ? 'bg-slate-100 text-slate-700' :
+                              change.type === 'trailing' ? 'bg-gray-100 text-gray-700' :
+                              change.type === 'struktur' ? 'bg-purple-100 text-purple-700' :
+                              change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {change.type?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div>
+                              <p className="mb-1 text-xs text-slate-500">Sebelum:</p>
+                              <p className="rounded bg-red-50 p-2 text-sm text-slate-600">{change.original}</p>
+                            </div>
+                            <div>
+                              <p className="mb-1 text-xs text-slate-500">Sesudah:</p>
+                              <p className="rounded bg-green-50 p-2 text-sm text-slate-600">{change.revised}</p>
+                            </div>
+                          </div>
+                          {change.reason && (
+                            <p className="mt-2 text-xs text-blue-600">{change.reason}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </section>
         )}
       </main>

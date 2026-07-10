@@ -1757,6 +1757,115 @@ export const analyzeSEO = (text, targetKeyword = "") => {
 };
 
 // ============================================================================
+// AUDIENS ANALYSIS (Readability, Appeal, Readability for Readers)
+// ============================================================================
+
+/**
+ * Analyze Audiens - Readability and audience appeal
+ * Focus on how well the article appeals to and is readable by target audience
+ */
+export const analyzeAudiens = (text) => {
+  const wordCount = countWords(text);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+  const syllables = wordCount > 0 ? wordCount * 1.5 : 0;
+  const readability = sentences.length > 0 
+    ? Math.max(0, Math.min(100, Math.round(206.835 - 1.015 * (wordCount / sentences.length) - 84.6 * (syllables / wordCount))))
+    : 0;
+  
+  const notes = [];
+  const strengths = [];
+  const weaknesses = [];
+  let score = 100;
+  
+  // === 1. READABILITY (Flesch-like for Indonesian) ===
+  if (readability < 50) {
+    score -= 20;
+    notes.push(`Keterbacaan rendah (skor ${readability}).`);
+    weaknesses.push('Keterbacaan sulit');
+  } else if (readability < 60) {
+    score -= 10;
+    notes.push(`Keterbacaan cukup (skor ${readability}).`);
+  } else {
+    strengths.push(`Keterbacaan baik (skor ${readability})`);
+  }
+  
+  // === 2. SENTENCE COMPLEXITY ===
+  const avgWordsPerSentence = sentences.length > 0 ? wordCount / sentences.length : 0;
+  if (avgWordsPerSentence > 25) {
+    score -= 15;
+    notes.push(`Rata-rata ${Math.round(avgWordsPerSentence)} kata/kalimat - terlalu panjang.`);
+    weaknesses.push('Kalimat terlalu panjang');
+  } else if (avgWordsPerSentence > 20) {
+    score -= 5;
+    notes.push(`Rata-rata ${Math.round(avgWordsPerSentence)} kata/kalimat.`);
+  } else {
+    strengths.push(`Panjang kalimat ideal (${Math.round(avgWordsPerSentence)} kata)`);
+  }
+  
+  // === 3. HEADLINE APPEAL ===
+  const headline = text.split(/\n/)[0] || text.slice(0, 100);
+  const headlineWords = headline.split(/\s+/).length;
+  const hasNumbers = /\d+/.test(headline);
+  const hasPowerWords = /\b(rahasia|luar biasa|harus|tidak|perlu|tak pernah|siap|semua)\b/i.test(headline);
+  
+  if (headlineWords > 12) {
+    score -= 10;
+    notes.push('Judul terlalu panjang (ideal 8-12 kata).');
+  }
+  if (!hasNumbers && headlineWords < 8) {
+    score -= 5;
+  }
+  if (hasPowerWords) {
+    strengths.push('Judul menggunakan kata power');
+  }
+  
+  // === 4. FACT RELEVANCE (are facts interesting/impactful?) ===
+  const factCount = countFacts(text);
+  const impactKeywords = /\b(miliar|juta|ribu|persen|kematian|kehilangan|seluruh|mayoritas|minoritas)\b/gi;
+  const impactMatches = (text.match(impactKeywords) || []).length;
+  
+  if (impactMatches >= 3) {
+    strengths.push('Banyak data dampak/angka');
+  } else if (impactMatches < 1 && factCount > 2) {
+    score -= 5;
+    notes.push('Kurang data dampak/angka yang menarik pembaca');
+  }
+  
+  // === 5. PARAGRAPH LENGTH ===
+  const paragraphs = text.split(/\n+/).filter(p => p.trim());
+  const longParagraphs = paragraphs.filter(p => p.split(/\s+/).length > 80).length;
+  if (longParagraphs > 0) {
+    score -= 10;
+    notes.push(`${longParagraphs} paragraf terlalu panjang untuk pembaca online.`);
+    weaknesses.push('Paragraf terlalu panjang');
+  }
+  
+  // Final score bounds
+  score = Math.max(0, Math.min(100, score));
+  
+  // Build summary
+  if (strengths.length > weaknesses.length) {
+    notes.unshift('Artikel mudah dibaca');
+  } else if (weaknesses.length > 0) {
+    notes.unshift('Keterbacaan perlu perbaikan');
+  }
+  
+  return { 
+    score: Math.round(score), 
+    notes, 
+    strengths,
+    weaknesses,
+    meta: { 
+      readability,
+      avgWordsPerSentence: Math.round(avgWordsPerSentence),
+      headlineWordCount: headlineWords,
+      impactKeywords: impactMatches,
+      paragraphCount: paragraphs.length
+    }
+  };
+};
+
+// ============================================================================
 // KONTEN & SUMBER ANALYSIS (News Value, Originalitas, Sumber Kredibilitas)
 // ============================================================================
 

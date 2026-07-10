@@ -7,8 +7,9 @@ import {
   analyzeMachineReadability,
   analyzeKonten,
   analyzeEtika,
+  analyzeAudiens,
 } from "../services/heuristics.js";
-import { evaluateWithLLM } from "../services/llmEvaluator.js";
+import { evaluateWithLLM, reviseText } from "../services/llmEvaluator.js";
 import { hashText, getCached, setCached } from "../services/cache.js";
 import { fetchArticleFromUrl } from "../services/urlScraper.js";
 import { extractVerificationFlags } from "../services/factExtractor.js";
@@ -17,25 +18,27 @@ import { config } from "../config.js";
 const router = Router();
 
 // Cache versioning - increment when structure changes
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 
-// Weights (konten + etika = 0.45 via LLM, others = 0.55 via heuristics)
+// Weights (8 dimensions)
 const WEIGHTS = {
-  struktur: 0.2,
+  struktur: 0.20,
   bahasa: 0.15,
   seo: 0.10,
-  teknis: 0.10,
+  audiens: 0.05,
+  teknis: 0.05,
 };
 
 // Thresholds for LLM bypass (cost optimization)
 const HIGH_THRESHOLD = 85;
 const LOW_THRESHOLD = 50;
 
-const estimateHeuristicScore = (struktur, bahasa, seo, teknis) => {
+const estimateHeuristicScore = (struktur, bahasa, seo, audiens, teknis) => {
   const heuristicScore = Math.round(
     struktur.score * WEIGHTS.struktur +
       bahasa.score * WEIGHTS.bahasa +
       seo.score * WEIGHTS.seo +
+      audiens.score * WEIGHTS.audiens +
       teknis.score * WEIGHTS.teknis,
   );
   return {
@@ -130,6 +133,7 @@ router.post("/analyze", async (req, res) => {
     const struktur = analyzeStruktur(articleText);
     const bahasaHeuristik = analyzeBahasaHeuristic(articleText);
     const seo = analyzeSEO(articleText);
+    const audiens = analyzeAudiens(articleText);
     const teknis = analyzeTeknis(articleText);
     const machineReadability = analyzeMachineReadability(articleText);
     const konten = analyzeKonten(articleText);
@@ -139,7 +143,7 @@ router.post("/analyze", async (req, res) => {
     const verificationFlags = extractVerificationFlags(articleText);
 
     // 2. Decide whether to use LLM
-    const { heuristicOnly, estimated } = estimateHeuristicScore(struktur, bahasaHeuristik, seo, teknis);
+    const { heuristicOnly, estimated } = estimateHeuristicScore(struktur, bahasaHeuristik, seo, audiens, teknis);
     const skipLLM = useLocalMode || estimated >= HIGH_THRESHOLD || estimated < LOW_THRESHOLD;
 
     let llmResult;
@@ -170,14 +174,15 @@ router.post("/analyze", async (req, res) => {
       };
     }
 
-    // 4. Calculate weighted overall score
+    // 4. Calculate weighted overall score (8 dimensions)
     const overallScore = Math.round(
-      llmResult.konten.score * 0.3 +
-        struktur.score * 0.2 +
+      llmResult.konten.score * 0.30 +
+        struktur.score * 0.20 +
         bahasaHeuristik.score * 0.15 +
         llmResult.etika.score * 0.15 +
-        seo.score * 0.1 +
-        teknis.score * 0.1,
+        seo.score * 0.10 +
+        audiens.score * 0.05 +
+        teknis.score * 0.05,
     );
 
     const verdict =
@@ -253,7 +258,7 @@ router.post("/analyze", async (req, res) => {
           }
         },
         { 
-          name: "SEO & Audiens", 
+          name: "SEO", 
           value: String(seo.score), 
           text: seo.notes?.join(' ') || '',
           notes: seo.notes || [],
@@ -267,6 +272,21 @@ router.post("/analyze", async (req, res) => {
             externalLinkCount: seo.meta?.externalLinkCount,
             clickWorthyScore: seo.meta?.clickWorthyScore,
             isShortArticle: seo.meta?.isShortArticle,
+          }
+        },
+        { 
+          name: "Audiens", 
+          value: String(audiens.score), 
+          text: audiens.notes?.join(' ') || '',
+          notes: audiens.notes || [],
+          strengths: audiens.strengths || [],
+          weaknesses: audiens.weaknesses || [],
+          meta: {
+            readability: audiens.meta?.readability,
+            avgWordsPerSentence: audiens.meta?.avgWordsPerSentence,
+            headlineWordCount: audiens.meta?.headlineWordCount,
+            impactKeywords: audiens.meta?.impactKeywords,
+            paragraphCount: audiens.meta?.paragraphCount,
           }
         },
         { 
@@ -347,6 +367,27 @@ router.get("/modes", (req, res) => {
     currentMode: config.mode,
     hasApiKey: !!config.anthropicApiKey,
   });
+});
+
+// Endpoint for AI-based text revision with category selection
+router.post("/revise", async (req, res) => {
+  const { text, categories = [] } = req.body;
+
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Teks artikel diperlukan." });
+  }
+
+  if (categories.length === 0) {
+    return res.status(400).json({ error: "Pilih minimal satu kategori untuk direvisi." });
+  }
+
+  try {
+    const result = await reviseText(text, categories);
+    return res.json(result);
+  } catch (err) {
+    console.error("Revisi error:", err);
+    return res.status(500).json({ error: err.message || "Gagal melakukan revisi." });
+  }
 });
 
 export default router;
