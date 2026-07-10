@@ -407,7 +407,7 @@ router.post("/classify", async (req, res) => {
   }
 });
 
-// Analyze Hook Meter (storytelling quality)
+// Analyze Hook Meter (storytelling quality) with caching
 router.post("/hook-meter", async (req, res) => {
   const { text } = req.body;
 
@@ -415,8 +415,15 @@ router.post("/hook-meter", async (req, res) => {
     return res.status(400).json({ error: "Teks artikel diperlukan." });
   }
 
+  const cacheKey = hashText(text + "|hook-meter|v1");
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return res.json({ ...cached, fromCache: true });
+  }
+
   try {
     const result = await analyzeHookMeter(text);
+    setCached(cacheKey, result);
     return res.json(result);
   } catch (err) {
     console.error("Hook Meter error:", err);

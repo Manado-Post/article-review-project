@@ -841,6 +841,16 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
       
       {expanded && (
         <div className="border-t border-slate-100 px-6 pb-6 pt-4">
+          {/* Partial analysis warning */}
+          {hookMeter._partial && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+              <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span>Analisis tidak lengkap. Data di bawah berdasarkan hasil parsial.</span>
+            </div>
+          )}
+          
           {/* Summary */}
           <p className="mb-4 text-sm text-slate-600">{hookMeter.summary}</p>
           
@@ -848,67 +858,66 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
           <div className="mb-4 rounded-xl bg-slate-50 p-4">
             <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Metrics</h4>
             
-            <MetricBar 
-              label="Opening Hook" 
-              score={hookMeter.metrics?.openingHook?.score || 0}
-              strength={hookMeter.metrics?.openingHook?.strength}
-              weakness={hookMeter.metrics?.openingHook?.weakness}
-              icon={
-                <svg className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              }
-            />
+            {hookMeter.metrics && Object.entries(hookMeter.metrics).map(([key, metric]) => {
+              const labels = {
+                openingHook: { label: 'Opening Hook', icon: 'text-purple-500' },
+                characterPresence: { label: 'Character Presence', icon: 'text-pink-500' },
+                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-500' },
+                sensoryDetails: { label: 'Sensory Details', icon: 'text-emerald-500' },
+                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-amber-500' },
+              };
+              const info = labels[key] || { label: key, icon: 'text-slate-500' };
+              return (
+                <MetricBar 
+                  key={key}
+                  label={info.label} 
+                  score={metric?.score || 0}
+                  strength={metric?.strength}
+                  weakness={metric?.weakness}
+                  icon={<span className={`h-4 w-4 rounded-full ${info.icon} bg-current opacity-30`} />}
+                />
+              );
+            })}
             
-            <MetricBar 
-              label="Character Presence" 
-              score={hookMeter.metrics?.characterPresence?.score || 0}
-              strength={hookMeter.metrics?.characterPresence?.strength}
-              weakness={hookMeter.metrics?.characterPresence?.weakness}
-              icon={
-                <svg className="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              }
-            />
-            
-            <MetricBar 
-              label="Narrative Arc" 
-              score={hookMeter.metrics?.narrativeArc?.score || 0}
-              strength={hookMeter.metrics?.narrativeArc?.strength}
-              weakness={hookMeter.metrics?.narrativeArc?.weakness}
-              icon={
-                <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              }
-            />
-            
-            <MetricBar 
-              label="Sensory Details" 
-              score={hookMeter.metrics?.sensoryDetails?.score || 0}
-              strength={hookMeter.metrics?.sensoryDetails?.strength}
-              weakness={hookMeter.metrics?.sensoryDetails?.weakness}
-              icon={
-                <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              }
-            />
-            
-            <MetricBar 
-              label="Emotional Resonance" 
-              score={hookMeter.metrics?.emotionalResonance?.score || 0}
-              strength={hookMeter.metrics?.emotionalResonance?.strength}
-              weakness={hookMeter.metrics?.emotionalResonance?.weakness}
-              icon={
-                <svg className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              }
-            />
+            {/* If no metrics, show fallback */}
+            {(!hookMeter.metrics || Object.keys(hookMeter.metrics).length === 0) && (
+              <>
+                <MetricBar label="Opening Hook" score={0} icon={<span className="h-4 w-4 rounded-full bg-purple-500 opacity-30" />} />
+                <MetricBar label="Character Presence" score={0} icon={<span className="h-4 w-4 rounded-full bg-pink-500 opacity-30" />} />
+                <MetricBar label="Narrative Arc" score={0} icon={<span className="h-4 w-4 rounded-full bg-blue-500 opacity-30" />} />
+                <MetricBar label="Sensory Details" score={0} icon={<span className="h-4 w-4 rounded-full bg-emerald-500 opacity-30" />} />
+                <MetricBar label="Emotional Resonance" score={0} icon={<span className="h-4 w-4 rounded-full bg-amber-500 opacity-30" />} />
+              </>
+            )}
           </div>
+          
+          {/* Weakness Summary */}
+          {hookMeter.metrics && Object.values(hookMeter.metrics).some(m => m?.weakness) && (
+            <div className="mb-4 rounded-xl bg-red-50 p-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">Kelemahan Storytelling</h4>
+              <ul className="space-y-1.5">
+                {Object.entries(hookMeter.metrics).map(([key, metric]) => {
+                  const labels = {
+                    openingHook: 'Opening Hook',
+                    characterPresence: 'Character Presence',
+                    narrativeArc: 'Narrative Arc',
+                    sensoryDetails: 'Sensory Details',
+                    emotionalResonance: 'Emotional Resonance',
+                  };
+                  if (!metric?.weakness) return null;
+                  return (
+                    <li key={key} className="flex items-start gap-2 text-sm text-red-700">
+                      <span className="mt-1 text-red-400">•</span>
+                      <div>
+                        <span className="font-medium">{labels[key] || key}:</span>{' '}
+                        <span>{metric.weakness}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           
           {/* Suggestions */}
           {hookMeter.suggestions && hookMeter.suggestions.length > 0 && (
@@ -922,6 +931,14 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          
+          {/* Fallback when no weaknesses and no suggestions */}
+          {(!hookMeter.metrics || !Object.values(hookMeter.metrics).some(m => m?.weakness)) && 
+           (!hookMeter.suggestions || hookMeter.suggestions.length === 0) && (
+            <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
+              <p>Storytelling analysis completed. Check the metrics above for detail.</p>
             </div>
           )}
         </div>
@@ -1055,7 +1072,7 @@ function App() {
       
       // Handle spacing/trailing in frontend (regex-based, no API needed)
       const frontendOnlyCategories = ['spacing', 'trailing'];
-      const llmCategories = ['passive', 'complex', 'formal', 'puebi', 'struktur', 'seo'];
+      const llmCategories = ['passive', 'complex', 'formal', 'puebi', 'struktur', 'seo', 'hookMeter'];
       const onlyFrontend = reviseCategories.every(c => frontendOnlyCategories.includes(c));
       
       if (onlyFrontend) {
@@ -1499,6 +1516,7 @@ function App() {
                   { id: 'trailing', label: 'Spasi Akhir', desc: 'Hapus trailing' },
                   { id: 'struktur', label: 'Struktur & Format', desc: 'Fix judul, lead, heading', badge: 'LLM' },
                   { id: 'seo', label: 'SEO', desc: 'Fix keyword, paragraf mati', badge: 'LLM' },
+                  { id: 'hookMeter', label: 'Storytelling', desc: 'Tingkatkan Hook Meter', badge: 'LLM' },
                 ].map(cat => (
                   <label
                     key={cat.id}
@@ -1595,8 +1613,9 @@ function App() {
                               change.type === 'spacing' ? 'bg-slate-100 text-slate-700' :
                               change.type === 'trailing' ? 'bg-gray-100 text-gray-700' :
                               change.type === 'struktur' ? 'bg-purple-100 text-purple-700' :
-                              change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
-                              'bg-green-100 text-green-700'
+                               change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
+                               change.type === 'hookMeter' ? 'bg-pink-100 text-pink-700' :
+                               'bg-green-100 text-green-700'
                             }`}>
                               {change.type?.toUpperCase()}
                             </span>

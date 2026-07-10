@@ -53,6 +53,67 @@ const parseJSON = (text) => {
   }
 };
 
+// Helper to strip markdown and parse JSON from LLM response
+const parseLLMResponse = (text) => {
+  const clean = text
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '');
+  
+  try {
+    return JSON.parse(clean);
+  } catch (err) {
+    // Extract metrics from truncated JSON
+    const extractMetric = (json, name) => {
+      const re = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*"score"\\s*:\\s*(\\d+)`);
+      const m = json.match(re);
+      return m ? parseInt(m[1]) : null;
+    };
+    
+    const extractText = (json, name, field) => {
+      const re = new RegExp(`"${name}"\\s*:\\s*\\{[^}]*"${field}"\\s*:\\s*"([^"]+)"`);
+      const m = json.match(re);
+      return m ? m[1] : '';
+    };
+    
+    const buildMetric = (name) => ({
+      score: extractMetric(clean, name) || 0,
+      strength: extractText(clean, name, 'strength') || '',
+      weakness: extractText(clean, name, 'weakness') || ''
+    });
+    
+    const scoreMatch = clean.match(/"score":\s*(\d+)/);
+    const levelMatch = clean.match(/"level":\s*"([^"]+)"/);
+    const summaryMatch = clean.match(/"summary"\s*:\s*"([^"]+)"/);
+    const suggestionMatch = clean.match(/"suggestions"\s*:\s*\[([^\]]+)\]/);
+    
+    if (scoreMatch && levelMatch) {
+      const suggestions = suggestionMatch
+        ? suggestionMatch[1].split(',').map(s => s.trim().replace(/"/g, '')).filter(Boolean)
+        : [];
+      
+      return {
+        score: parseInt(scoreMatch[1]),
+        level: levelMatch[1],
+        metrics: {
+          openingHook: buildMetric('openingHook'),
+          characterPresence: buildMetric('characterPresence'),
+          narrativeArc: buildMetric('narrativeArc'),
+          sensoryDetails: buildMetric('sensoryDetails'),
+          emotionalResonance: buildMetric('emotionalResonance')
+        },
+        summary: summaryMatch ? summaryMatch[1] : 'Analisis terpotong - periksa detail di bawah',
+        suggestions,
+        _partial: true,
+        _error: err.message
+      };
+    }
+    
+    throw new Error(`JSON tidak valid: ${err.message}. Response: ${clean.slice(0, 200)}...`);
+  }
+};
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const evaluateWithLLM = async (articleText, retries = 2) => {
@@ -149,7 +210,9 @@ ATURAN ELIGIBILITY:
 - Hook Meter diterapkan JIKA: wordCount >= 400 DAN type IN [feature, deep_dive, long_form, human_interest, narrative, profile, biography, investigative]
 - Hook Meter DITOLAK JIKA: wordCount < 400 ATAU type IN [straight_news, breaking, briefing, tips, how_to, data_dump, press_release, opinion, quick_update]
 
-BALAS HANYA JSON valid:
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
 {"type":"nama_tipe","subtype":"subtipe_jika_ada","wordCount":500,"eligibleForHookMeter":true,"reason":"penjelasan_singkat"}`;
 
 export const classifyArticle = async (text, retries = 2) => {
@@ -191,26 +254,41 @@ export const classifyArticle = async (text, retries = 2) => {
       }
 
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status}`);
+        const errText = await response.text();
+        throw new Error(`Claude API error: ${response.status} - ${errText.slice(0, 200)}`);
       }
 
       const data = await response.json();
+      
+      // Check for API error
+      if (data.error) {
+        throw new Error(`API Error: ${data.error.type || 'unknown'} - ${data.error.message || JSON.stringify(data.error)}`);
+      }
+      
+      // Check content structure
+      if (!data.content || !Array.isArray(data.content)) {
+        throw new Error(`Respons API tidak valid: content type is ${typeof data.content}`);
+      }
+      
       const textBlock = data.content?.find((c) => c.type === "text");
-      if (!textBlock) throw new Error("Respons LLM tidak mengandung teks.");
+      if (!textBlock || !textBlock.text) {
+        throw new Error("Respons LLM tidak mengandung teks.");
+      }
 
-      const result = JSON.parse(textBlock.text.trim());
+      const result = parseLLMResponse(textBlock.text);
       return {
         ...result,
         wordCount
       };
     } catch (err) {
+      console.error(`Classify attempt ${attempt + 1} failed:`, err.message);
       if (attempt === retries) {
         // Fallback: assume not eligible
         return {
           type: 'unknown',
           wordCount,
           eligibleForHookMeter: false,
-          reason: 'Klasifikasi gagal, default tidak eligible'
+          reason: `Klasifikasi gagal: ${err.message}`
         };
       }
       await sleep((attempt + 1) * 1000);
@@ -253,21 +331,26 @@ DIMENSI PENILAIAN:
    - Word choice evocative atau flat?
    - Ada element yang relatable untuk audiens?
 
+PENTING: strength dan weakness maksimal 1 kalimat singkat per field. summary 1-2 kalimat.
+suggestions maksimal 2 saran singkat.
+
 SCORING: 0-100 per dimensi, 0-100 total
 
-BALAS HANYA JSON valid:
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
 {
   "score": 0-100,
   "level": "excellent|good|average|below_average|poor",
   "metrics": {
-    "openingHook": {"score": 0-100, "strength": "kekuatan di dimensi ini", "weakness": "kelemahan di dimensi ini"},
+    "openingHook": {"score": 0-100, "strength": "kekuatan singkat", "weakness": "kelemahan singkat"},
     "characterPresence": {"score": 0-100, "strength": "...", "weakness": "..."},
     "narrativeArc": {"score": 0-100, "strength": "...", "weakness": "..."},
     "sensoryDetails": {"score": 0-100, "strength": "...", "weakness": "..."},
     "emotionalResonance": {"score": 0-100, "strength": "...", "weakness": "..."}
   },
-  "summary": "ringkasan keseluruhan storytelling quality",
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+  "summary": "ringkasan 1-2 kalimat",
+  "suggestions": ["saran singkat 1", "saran singkat 2"]
 }`;
 
 export const analyzeHookMeter = async (text, retries = 2) => {
@@ -299,7 +382,7 @@ export const analyzeHookMeter = async (text, retries = 2) => {
         },
         body: JSON.stringify({
           model: "claude-sonnet-5",
-          max_tokens: 800,
+          max_tokens: 2000,
           system: HOOK_METER_PROMPT,
           messages: [
             { role: "user", content: `Analisis storytelling artikel ini:\n"""\n${truncatedText}\n"""` }
@@ -316,22 +399,57 @@ export const analyzeHookMeter = async (text, retries = 2) => {
       }
 
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status}`);
+        const errText = await response.text();
+        throw new Error(`Claude API error: ${response.status} - ${errText.slice(0, 200)}`);
       }
 
       const data = await response.json();
+      
+      // Debug: log response structure
+      console.log("Hook Meter response structure:", JSON.stringify(data).slice(0, 500));
+      
+      // Check for API error in response
+      if (data.error) {
+        throw new Error(`API Error: ${data.error.type || 'unknown'} - ${data.error.message || JSON.stringify(data.error)}`);
+      }
+      
+      // Check content structure
+      if (!data.content || !Array.isArray(data.content)) {
+        throw new Error(`Respons API tidak valid: content type is ${typeof data.content}`);
+      }
+      
+      // Find text block
       const textBlock = data.content?.find((c) => c.type === "text");
-      if (!textBlock) throw new Error("Respons LLM tidak mengandung teks.");
+      if (!textBlock || !textBlock.text) {
+        // Try to find any block with text
+        const anyBlock = data.content.find((c) => c.text);
+        if (anyBlock) {
+          const result = parseLLMResponse(anyBlock.text);
+          return {
+            ...result,
+            wordCount,
+            analyzedAt: new Date().toISOString()
+          };
+        }
+        throw new Error("Respons LLM tidak mengandung teks.");
+      }
 
-      const result = JSON.parse(textBlock.text.trim());
+      const result = parseLLMResponse(textBlock.text);
       return {
         ...result,
         wordCount,
         analyzedAt: new Date().toISOString()
       };
     } catch (err) {
+      console.error(`Hook Meter attempt ${attempt + 1} failed:`, err.message);
       if (attempt === retries) {
-        throw err;
+        // Return skipped result instead of throwing
+        return {
+          skipped: true,
+          reason: `Analisis gagal: ${err.message}`,
+          score: null,
+          wordCount
+        };
       }
       await sleep((attempt + 1) * 1000);
     }
@@ -375,6 +493,10 @@ const CATEGORY_RULES = {
   seo: {
     label: "SEO",
     rule: "PERINGATAN: Menggunakan prompt khusus SEO."
+  },
+  hookMeter: {
+    label: "Storytelling",
+    rule: "PERINGATAN: Menggunakan prompt khusus Storytelling."
   }
 };
 
@@ -391,7 +513,15 @@ const CUSTOM_PROMPTS = {
 1. Perbaiki keyword density agar 1-2% - tambahkan kata kunci secara natural di judul, lead, dan subjudul
 2. Hapus atau perbaiki paragraf "mati" (paragraf tanpa fakta, angka, atau kutipan)
 3. Tambahkan fakta/data di setiap paragraf agar density 1 fakta per 150-200 kata
-4. Pastikan lead mengandung kata kunci utama untuk meta description yang optimal`
+4. Pastikan lead mengandung kata kunci utama untuk meta description yang optimal`,
+
+  hookMeter: `PERBAIKAN STORYTELLING (HOOK METER):
+1. OPENING HOOK: Perbaiki kalimat pertama agar lebih menarik - bisa pakai pertanyaan, statistik mengejutkan, atau scene langsung
+2. CHARACTER PRESENCE: Tambahkan perspektif manusia (kutipan langsung, pengalaman personal, tokoh nyata)
+3. NARRATIVE ARC: Bangun alur cerita yang jelas - ada konflik/masalah, perkembangan, dan resolusi atau lessons learned
+4. SENSORY DETAILS: Tambahkan deskripsi spesifik tentang waktu, tempat, suasana, detail fisik yang membuat pembaca "melihat" kejadian
+5. EMOTIONAL RESONANCE: Pilih kata yang lebih evocative, bangun empati atau rasa ingin tahu, buat lebih relatable
+PENTING: Jaga fakta, angka, nama, dan data statistik tetap akurat.`
 };
 
 // Generate dynamic system prompt for revision based on selected categories
@@ -429,7 +559,9 @@ TUGAS KHUSUS:
 2. Identifikasi PER KALIMAT apa yang diubah dan jelaskan alasannya
 3. Hitung jumlah kata sebelum dan sesudah
 
-BALAS HANYA JSON valid:
+PENTING: BALAS HANYA JSON TANPA MARKDOWN.
+JANGAN gunakan kode blok markdown.
+BALAS LANGSUNG OBJEK JSON SAJA:
 {
   "revised_text": "teks artikel yang sudah direvisi sesuai kategori...",
   "changes": [
