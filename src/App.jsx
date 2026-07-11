@@ -7,18 +7,27 @@ import manadoPostWordmark from "./assets/logo.webp";
 // ============================================
 
 // Masthead with logo and title
+
+// Masthead with logo - NEGATIVE MARGIN
 const Masthead = () => (
   <header className="mb-6 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
-    <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+    <div className="flex flex-shrink-0 items-center">
+      {/* Logo */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-11 w-11 flex-shrink-0 rounded-xl object-contain sm:h-14 sm:w-14"
+        className="h-16 w-16 flex-shrink-0 rounded-xl object-contain sm:h-20 sm:w-20"
+        style={{ width: '100px', height: '100px' }}
       />
+      {/* Wordmark - dengan margin negatif untuk mendekat */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
-        className="h-12 w-auto object-contain sm:h-14"
+        className="h-12 w-auto object-contain sm:h-16"
+        style={{ 
+          height: '60px',
+          marginLeft: '-8px' // Mendekatkan dengan margin negatif
+        }}
       />
     </div>
     <h2 className="text-sm font-semibold text-blue-950 sm:text-base">Article Quality Analyzer</h2>
@@ -68,22 +77,33 @@ const Recommendation = ({ text }) => {
 };
 
 // Category score card component
+// Category score card component - KEEP ORIGINAL COLOR
 const ScoreCard = ({ category, isActive, onClick, score }) => {
-  const scoreColor = score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-blue-600' : score >= 50 ? 'text-amber-600' : 'text-red-600';
+  // Tentukan warna berdasarkan skor (tidak terpengaruh isActive)
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-emerald-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 50) return 'text-amber-600';
+    return 'text-red-600';
+  };
+  
+  const scoreColor = getScoreColor(score);
   
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-all ${
+      className={`flex items-center gap-3 rounded-xl px-4 py-2 text-left transition-all ${
         isActive 
-          ? 'bg-blue-900 text-white shadow-md' 
+          ? 'bg-blue-900 shadow-md' 
           : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
       }`}
     >
-      <span className={`text-2xl font-bold ${isActive ? 'text-white' : scoreColor}`}>
+      <span className={`text-xl font-bold ${scoreColor}`}> {/* Warna tetap sesuai skor */}
         {score}
       </span>
-      <span className="flex-1 text-sm font-medium">{category}</span>
+      <span className={`flex-1 text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
+        {category}
+      </span>
       <ChevronIcon expanded={isActive} />
     </button>
   );
@@ -265,6 +285,13 @@ const WeaknessBox = ({ type, label, content, recommendation, style }) => (
 );
 
 // Collapsible weakness list
+// ============================================
+// ENHANCED WEAKNESS DISPLAY COMPONENTS - WITH RED HIGHLIGHT
+// ============================================
+
+// Collapsible weakness list dengan highlight merah
+// Collapsible weakness list - Simple red version
+// Collapsible weakness list - KEMBALI KE TAMPILAN SEMULA
 const CollapsibleWeaknessList = ({ weaknesses, title, maxVisible = 5 }) => {
   const [expanded, setExpanded] = useState(false);
   
@@ -446,20 +473,24 @@ const MetaSection = ({ meta }) => {
 };
 
 // Notes section
+// Notes section - WITH NUMBERED LIST (cleaner style)
+// Notes section - WITH NUMBERED LIST (circle badge)
 const NotesSection = ({ notes }) => {
   if (!notes || notes.length === 0) return null;
   
   return (
     <div className="mb-4">
       <h4 className="text-sm font-semibold text-slate-600 mb-2">Catatan</h4>
-      <ul className="space-y-1">
+      <div className="space-y-2">
         {notes.map((note, i) => (
-          <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">-</span>
-            {note}
-          </li>
+          <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+              {i + 1}
+            </span>
+            <p className="text-sm text-slate-700 flex-1 leading-relaxed">{note}</p>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 };
@@ -490,23 +521,42 @@ const StrengthsSection = ({ strengths }) => {
 const CategoryDetail = ({ details, isExpanded }) => {
   if (!isExpanded) return null;
   
+  // Gabungkan description text ke dalam notes jika ada
+  const getAllNotes = () => {
+    const notes = [];
+    
+    if (details.text) {
+      notes.push(details.text);
+    }
+    
+    if (details.notes && details.notes.length > 0) {
+      notes.push(...details.notes);
+    }
+    
+    return notes;
+  };
+  
+  const allNotes = getAllNotes();
+  
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      {/* Main description */}
-      {details.text && (
+      {/* Semua catatan dalam satu box biru */}
+      {allNotes.length > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
-          <p className="text-sm text-blue-800">{details.text}</p>
+          <h4 className="text-sm font-semibold text-blue-700 mb-2">Catatan</h4>
+          <ol className="space-y-1 pl-5" style={{ listStyleType: 'decimal' }}>
+            {allNotes.map((note, i) => (
+              <li key={i} className="text-sm text-blue-800">
+                {note}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
       
-      {/* Risks section (for Etika) - displayed at top */}
+      {/* Risks section (for Etika) */}
       {details.risks?.length > 0 && (
         <RisksSection risks={details.risks} />
-      )}
-      
-      {/* Notes */}
-      {details.notes?.length > 0 && (
-        <NotesSection notes={details.notes} />
       )}
       
       {/* Strengths */}
@@ -514,7 +564,7 @@ const CategoryDetail = ({ details, isExpanded }) => {
         <StrengthsSection strengths={details.strengths} />
       )}
       
-      {/* Weaknesses - with special rendering */}
+      {/* Weaknesses - KEMBALI KE TAMPILAN SEMULA */}
       {details.weaknesses?.length > 0 && (
         <CollapsibleWeaknessList
           title="Kelemahan"
@@ -739,29 +789,28 @@ const HookMeterBadge = ({ score }) => {
   );
 };
 
-const MetricBar = ({ label, score, strength, weakness, icon }) => (
+const MetricBar = ({ label, score, strength, weakness }) => (
   <div className="mb-4 last:mb-0">
     <div className="mb-1 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        {icon}
+        <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
         <span className="text-sm font-medium text-slate-700">{label}</span>
       </div>
       <span className="text-sm font-semibold text-slate-600">{score}</span>
     </div>
     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
       <div 
-        className={`h-full rounded-full transition-all ${
-          score >= 70 ? 'bg-emerald-400' : 
-          score >= 50 ? 'bg-amber-400' : 'bg-red-400'
-        }`}
+        className="h-full rounded-full bg-slate-500 transition-all"
         style={{ width: `${score}%` }}
       />
     </div>
     {strength && (
-      <p className="mt-1 text-xs text-emerald-600">+ {strength}</p>
+      <p className="mt-1 text-xs text-slate-600">+ {strength}</p>
     )}
     {weakness && (
-      <p className="mt-0.5 text-xs text-red-500">- {weakness}</p>
+      <p className="mt-0.5 text-xs text-slate-500">- {weakness}</p>
     )}
   </div>
 );
@@ -810,13 +859,17 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-6 text-left"
+        className="flex w-full items-center justify-between p-0.5 text-left"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+          <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-white-50 p-0.5">
+            <img
+              src={mdopostLogo}
+              alt="MP Logo"
+              width={100}
+              height={100}
+              className="object-contain"
+            />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-blue-950">Hook Meter</h3>
@@ -860,11 +913,11 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
             
             {hookMeter.metrics && Object.entries(hookMeter.metrics).map(([key, metric]) => {
               const labels = {
-                openingHook: { label: 'Opening Hook', icon: 'text-purple-500' },
-                characterPresence: { label: 'Character Presence', icon: 'text-pink-500' },
-                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-500' },
-                sensoryDetails: { label: 'Sensory Details', icon: 'text-emerald-500' },
-                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-amber-500' },
+                openingHook: { label: 'Opening Hook', icon: 'text-blue-900' },
+                characterPresence: { label: 'Character Presence', icon: 'text-blue-900' },
+                narrativeArc: { label: 'Narrative Arc', icon: 'text-blue-900' },
+                sensoryDetails: { label: 'Sensory Details', icon: 'text-blue-900' },
+                emotionalResonance: { label: 'Emotional Resonance', icon: 'text-blue-900' },
               };
               const info = labels[key] || { label: key, icon: 'text-slate-500' };
               return (
@@ -893,8 +946,8 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
           
           {/* Weakness Summary */}
           {hookMeter.metrics && Object.values(hookMeter.metrics).some(m => m?.weakness) && (
-            <div className="mb-4 rounded-xl bg-red-50 p-4">
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">Kelemahan Storytelling</h4>
+            <div className="mb-4 rounded-xl bg-slate-50 p-4 border border-slate-200">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Kelemahan Storytelling</h4>
               <ul className="space-y-1.5">
                 {Object.entries(hookMeter.metrics).map(([key, metric]) => {
                   const labels = {
@@ -906,10 +959,10 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
                   };
                   if (!metric?.weakness) return null;
                   return (
-                    <li key={key} className="flex items-start gap-2 text-sm text-red-700">
-                      <span className="mt-1 text-red-400">•</span>
+                    <li key={key} className="flex items-start gap-2 text-sm text-slate-600">
+                      <span className="mt-1 text-slate-400">•</span>
                       <div>
-                        <span className="font-medium">{labels[key] || key}:</span>{' '}
+                        <span className="font-medium text-slate-700">{labels[key] || key}:</span>{' '}
                         <span>{metric.weakness}</span>
                       </div>
                     </li>
@@ -920,13 +973,16 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
           )}
           
           {/* Suggestions */}
+          {/* Suggestions */}
           {hookMeter.suggestions && hookMeter.suggestions.length > 0 && (
-            <div className="rounded-xl bg-purple-50 p-4">
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-600">Suggestions</h4>
+            <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Suggestions</h4>
               <ul className="space-y-1">
                 {hookMeter.suggestions.map((suggestion, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-purple-700">
-                    <span className="mt-1 text-purple-400">•</span>
+                  <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                    <svg className="h-4 w-4 flex-shrink-0 text-slate-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
                     <span>{suggestion}</span>
                   </li>
                 ))}
