@@ -372,10 +372,27 @@ const findChromePath = () => {
 };
 
 /**
- * Fetch article using Puppeteer (headless Chrome) for JavaScript-rendered content
+ * Check if URL is from manadopost or similar jawapos network
+ * @param {string} url
+ * @returns {boolean}
+ */
+const isManadoPostSite = (url) => {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.includes('manadopost') || 
+           hostname.includes('jawapos') ||
+           hostname.includes('radar') ||
+           hostname.includes('jjmn');
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Extract article using Puppeteer (headless Chrome) for JavaScript-rendered content
  * Handles "Show All" pagination buttons
  * @param {string} url - The URL to fetch
- * @returns {Promise<{text: string, title: string}>}
+ * @returns {Promise<{text: string, title: string, metadata: object}>}
  */
 const fetchWithPuppeteer = async (url) => {
   const chromePath = await findChromePath();
@@ -460,14 +477,17 @@ const fetchWithPuppeteer = async (url) => {
     });
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // Check if this is a manadopost site
+    const isManadoPost = isManadoPostSite(url);
+
     // Extract article content
-    const result = await page.evaluate(() => {
+    const result = await page.evaluate((isManadoPost) => {
       // Remove unwanted elements
       const removeSelectors = [
         "script", "style", "nav", "header", "footer", "aside",
         ".ads", ".advertisement", ".sidebar", ".menu", ".navigation",
         ".comments", ".social-share", ".related-articles", ".breadcrumb",
-        ".breaking-news", ".breaking", ".breaking-banner"
+        ".breaking-news", ".breaking", ".breaking-banner", "iframe"
       ];
       
       removeSelectors.forEach((sel) => {
@@ -477,45 +497,127 @@ const fetchWithPuppeteer = async (url) => {
       // Get title
       const title =
         document.querySelector("h1")?.textContent?.trim() ||
+        document.querySelector('meta[property="og:title"]')?.content ||
+        document.querySelector('meta[name="twitter:title"]')?.content ||
         document.querySelector("title")?.textContent?.trim() ||
         "";
 
-      // Try article elements
-      const articleSelectors = [
-        "article",
-        '[role="article"]',
-        ".article-content",
-        ".article-body",
-        ".post-content",
-        ".entry-content",
-        ".content-body",
-        ".story-content",
-        ".berita-content",
-        ".news-content",
-        ".main-content",
-        "main",
-        "#article",
-        ".amp-wp-content",
-      ];
+      // Extract metadata
+      const metadata = {
+        author: 
+          document.querySelector('meta[name="content_Author"]')?.content ||
+          document.querySelector('meta[property="article:author"]')?.content ||
+          null,
+        category: 
+          document.querySelector('meta[name="content_Category"]')?.content ||
+          document.querySelector('meta[property="article:section"]')?.content ||
+          null,
+        publishedDate:
+          document.querySelector('meta[property="article:published_time"]')?.content ||
+          document.querySelector('meta[name="content_PublishedDate"]')?.content ||
+          null,
+        description:
+          document.querySelector('meta[property="og:description"]')?.content ||
+          document.querySelector('meta[name="description"]')?.content ||
+          null,
+      };
+
+      // Try to get author/penulis from dataLayer script
+      try {
+        const dataLayerMatch = document.body.innerHTML.match(/dataLayer\s*=\s*(\[.*?\])/);
+        if (dataLayerMatch) {
+          const dataLayer = JSON.parse(dataLayerMatch[1]);
+          if (dataLayer[0]) {
+            metadata.author = metadata.author || dataLayer[0].penulis || dataLayer[0].author || null;
+            metadata.category = metadata.category || dataLayer[0].rubrik || dataLayer[0].category || null;
+          }
+        }
+      } catch (e) {
+        // dataLayer parse failed, continue without it
+      }
 
       let contentText = "";
 
-      for (const selector of articleSelectors) {
-        const article = document.querySelector(selector);
-        if (article) {
-          const paragraphs = article.querySelectorAll("p, h2, h3, h4, li, blockquote");
-          if (paragraphs.length > 0) {
-            contentText = Array.from(paragraphs)
-              .map((p) => p.textContent?.trim())
-              .filter((text) => text && text.length > 20)
-              .join("\n\n");
+      // For manadopost/jawapos sites: use specific selectors
+      if (isManadoPost) {
+        // Primary: p.isSelectedEnd with span inside (manadopost structure)
+        const manadoSelectors = [
+          // Direct paragraph content (manadopost specific)
+          "p.isSelectedEnd span",
+          "p.isSelectedEnd",
+          // Container-based approach
+          ".artikel p.isSelectedEnd span",
+          ".artikel p.isSelectedEnd",
+          // Article container
+          ".artikel",
+        ];
+
+        for (const selector of manadoSelectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            const texts = Array.from(elements)
+              .map((el) => el.textContent?.trim())
+              .filter((text) => text && text.length > 20 && !text.match(/^\s*&nbsp;\s*$/));
             
-            if (contentText.length > 200) break;
+            if (texts.length > 0) {
+              contentText = texts.join("\n\n");
+              if (contentText.length > 200) break;
+            }
+          }
+        }
+
+        // If still no content, try alternative structure
+        if (!contentText || contentText.length < 200) {
+          // Try extracting from article div with rt-Text class
+          const articleDivs = document.querySelectorAll(".artikel .rt-Text p");
+          if (articleDivs.length > 0) {
+            const texts = Array.from(articleDivs)
+              .map((el) => el.textContent?.trim())
+              .filter((text) => text && text.length > 20);
+            
+            if (texts.length > 0) {
+              contentText = texts.join("\n\n");
+            }
           }
         }
       }
 
-      // Fallback to all paragraphs
+      // Fallback: standard selectors for other sites
+      if (!contentText || contentText.length < 200) {
+        const articleSelectors = [
+          "article",
+          '[role="article"]',
+          ".article-content",
+          ".article-body",
+          ".post-content",
+          ".entry-content",
+          ".content-body",
+          ".story-content",
+          ".berita-content",
+          ".news-content",
+          ".main-content",
+          "main",
+          "#article",
+          ".amp-wp-content",
+        ];
+
+        for (const selector of articleSelectors) {
+          const article = document.querySelector(selector);
+          if (article) {
+            const paragraphs = article.querySelectorAll("p, h2, h3, h4, li, blockquote");
+            if (paragraphs.length > 0) {
+              contentText = Array.from(paragraphs)
+                .map((p) => p.textContent?.trim())
+                .filter((text) => text && text.length > 20)
+                .join("\n\n");
+              
+              if (contentText.length > 200) break;
+            }
+          }
+        }
+      }
+
+      // Last fallback: all paragraphs
       if (!contentText || contentText.length < 200) {
         const paragraphs = document.querySelectorAll("p, h2, h3, h4, li, blockquote");
         contentText = Array.from(paragraphs)
@@ -524,14 +626,18 @@ const fetchWithPuppeteer = async (url) => {
           .join("\n\n");
       }
 
-      return { title, text: contentText };
-    });
+      return { title, text: contentText, metadata };
+    }, isManadoPost);
 
     if (!result.text || result.text.length < 100) {
       throw new Error("Puppeteer: No content extracted");
     }
 
-    return result;
+    return {
+      text: result.text,
+      title: result.title,
+      metadata: result.metadata || {}
+    };
   } finally {
     await browser.close();
   }
@@ -541,7 +647,7 @@ const fetchWithPuppeteer = async (url) => {
  * Fetch article content from URL with multiple extraction methods
  * Compares results and returns the longest content
  * @param {string} url - The URL to fetch
- * @returns {Promise<{text: string, title: string, domain: string}>}
+ * @returns {Promise<{text: string, title: string, domain: string, metadata: object}>}
  * @throws {Error} - If URL is invalid, fetch fails, or no content extracted
  */
 export const fetchArticleFromUrl = async (url) => {
@@ -558,6 +664,7 @@ export const fetchArticleFromUrl = async (url) => {
 
   const parsed = new URL(url);
   const domain = parsed.hostname.replace("www.", "");
+  const isManadoPost = isManadoPostSite(url);
 
   try {
     // Collect all extraction results
@@ -566,10 +673,47 @@ export const fetchArticleFromUrl = async (url) => {
     // Step 1: Try to fetch main URL with JSON extraction + cheerio
     let html = await fetchHtml(url);
     let extracted = extractArticleText(html, url);
+    
+    // Also extract metadata from HTML
+    const $ = cheerio.load(html);
+    const htmlMetadata = {
+      author: 
+        $('meta[name="content_Author"]').attr("content") ||
+        $('meta[property="article:author"]').attr("content") ||
+        null,
+      category: 
+        $('meta[name="content_Category"]').attr("content") ||
+        $('meta[property="article:section"]').attr("content") ||
+        null,
+      publishedDate:
+        $('meta[property="article:published_time"]').attr("content") ||
+        $('meta[name="content_PublishedDate"]').attr("content") ||
+        null,
+      description:
+        $('meta[property="og:description"]').attr("content") ||
+        $('meta[name="description"]').attr("content") ||
+        null,
+    };
+    
+    // Try to get dataLayer metadata
+    try {
+      const dataLayerMatch = html.match(/dataLayer\s*=\s*(\[.*?\])/);
+      if (dataLayerMatch) {
+        const dataLayer = JSON.parse(dataLayerMatch[1]);
+        if (dataLayer[0]) {
+          htmlMetadata.author = htmlMetadata.author || dataLayer[0].penulis || null;
+          htmlMetadata.category = htmlMetadata.category || dataLayer[0].rubrik || null;
+        }
+      }
+    } catch (e) {
+      // dataLayer parse failed
+    }
+    
     if (extracted.text && extracted.text.length >= 100) {
       results.push({
         text: extracted.text,
         title: extracted.title,
+        metadata: htmlMetadata,
         method: 'json+cheerio',
         length: extracted.text.length
       });
@@ -585,6 +729,7 @@ export const fetchArticleFromUrl = async (url) => {
           results.push({
             text: ampExtracted.text,
             title: ampExtracted.title,
+            metadata: htmlMetadata, // Use same metadata
             method: 'amp',
             length: ampExtracted.text.length
           });
@@ -595,12 +740,14 @@ export const fetchArticleFromUrl = async (url) => {
     }
 
     // Step 3: Try Puppeteer for JS-rendered content / Show All pagination
+    // This is the MAIN method for manadopost since it's a SPA
     try {
       const puppeteerResult = await fetchWithPuppeteer(url);
       if (puppeteerResult.text && puppeteerResult.text.length >= 100) {
         results.push({
           text: puppeteerResult.text,
           title: puppeteerResult.title,
+          metadata: puppeteerResult.metadata || htmlMetadata,
           method: 'puppeteer',
           length: puppeteerResult.text.length
         });
@@ -617,6 +764,7 @@ export const fetchArticleFromUrl = async (url) => {
         text: best.text,
         title: best.title,
         domain: domain,
+        metadata: best.metadata || {},
       };
     }
 
@@ -627,6 +775,7 @@ export const fetchArticleFromUrl = async (url) => {
         text: `[Cuplikan artikel - konten lengkap memerlukan JavaScript rendering]\n\n${ogDesc}`,
         title: extracted.title,
         domain: domain,
+        metadata: htmlMetadata,
       };
     }
 
