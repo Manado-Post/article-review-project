@@ -8,8 +8,14 @@ dotenv.config();
 const validModes = ['local', 'hybrid', 'llm'];
 const configuredMode = process.env.MODE?.toLowerCase() || 'hybrid';
 
+const mode = validModes.includes(configuredMode) ? configuredMode : 'hybrid';
+
+if ((mode === 'hybrid' || mode === 'llm') && !process.env.ANTHROPIC_API_KEY) {
+  throw new Error(`Mode "${mode}" requires ANTHROPIC_API_KEY environment variable. Set it in .env or use MODE=local.`);
+}
+
 export const config = {
   port: process.env.PORT || 4001,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-  mode: validModes.includes(configuredMode) ? configuredMode : 'hybrid',
+  mode,
 };

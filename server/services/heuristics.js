@@ -1,6 +1,8 @@
 // Enhanced heuristics berdasarkan Standar Penulisan Jawa Pos
 // Fokus: struktur mesin-readable + weakness detection + AI-SEO optimization
 
+import { DEFAMATION_KEYWORDS, QUALIFIER_WORDS } from "./defamation.js";
+
 const clean = (text) => text.trim().replace(/\s+/g, " ");
 const countWords = (text) =>
   text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -2073,27 +2075,14 @@ export const analyzeEtika = (text) => {
   const textLower = text.toLowerCase();
   
   // === 1. LIBEL & FITNAH CHECK ===
-  
-  // Defamation keywords (need "diduga" or equivalent)
-  const defamationKeywords = [
-    'koruptor', 'pelaku', 'tersangka', 'terdakwa', 'residivis',
-    'pencuri', 'penipu', 'korupsi', 'pengedar', 'narkoba',
-    'pelaku kekerasan', 'pembunuh', 'teroris',
-  ];
-  
-  // Qualifier words that soften accusations
-  const qualifierWords = [
-    'diduga', 'konon', 'dikatakannya', 'katanya', 'tersangka', 
-    'dalam proses', 'sedang diselidiki', 'belum terbukti',
-  ];
-  
+  // Uses shared defamation.js constants
   let defamationRisk = 0;
-  defamationKeywords.forEach(keyword => {
+  DEFAMATION_KEYWORDS.forEach(keyword => {
     const pattern = new RegExp(`\\b${keyword}\\b`, 'gi');
     const matches = text.match(pattern);
     if (matches) {
       // Check if preceded by qualifier
-      const hasQualifier = qualifierWords.some(q => textLower.includes(q));
+      const hasQualifier = QUALIFIER_WORDS.some(q => textLower.includes(q));
       if (!hasQualifier) {
         defamationRisk++;
         risks.push({

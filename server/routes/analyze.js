@@ -12,10 +12,13 @@ import {
   detectTypoAIArtifacts,
 } from "../services/heuristics.js";
 import { evaluateWithLLM, reviseText, classifyArticle, analyzeHookMeter } from "../services/llmEvaluator.js";
-import { hashText, getCached, setCached, migrateCache, CACHE_SCHEMA_VERSION, getCacheStats, clearAllCache } from "../services/cache.js";
+import { hashText, getCached, setCached, migrateCache, CACHE_SCHEMA_VERSION } from "../services/cache.js";
 import { fetchArticleFromUrl } from "../services/urlScraper.js";
 import { extractVerificationFlags } from "../services/factExtractor.js";
+import { hasDefamationRisk } from "../services/defamation.js";
 import { config } from "../config.js";
+import { logger } from "../services/logger.js";
+import { metrics, getMetrics } from "../services/metrics.js";
 
 const router = Router();
 
@@ -66,12 +69,11 @@ const estimateLLMScores = (struktur, bahasa, seo, text) => {
   // Estimate etika score based on attribution and content patterns
   let etikaEstimate = 70;
   const hasOfficialSources = /\b(BNPB|BPS|Kemendagri|Kementerian|BMKG|BPK|PUPR|Pemerintah)\b/i.test(text);
-  const hasDefamationRisk = /koruptor|tersangka|pelaku.*tanpa.*diduga/i.test(text);
   const hasMultipleSides = (text.match(/,/g) || []).length > 5; // Multiple sources
   
   if (hasOfficialSources) etikaEstimate += 10;
   if (hasMultipleSides) etikaEstimate += 5;
-  if (hasDefamationRisk) etikaEstimate -= 20;
+  if (hasDefamationRisk(text)) etikaEstimate -= 20;
   
   return {
     konten: { 
@@ -172,6 +174,11 @@ const buildHighlights = (articleText, llmResult, bahasaHeuristik) => {
 router.post("/analyze", async (req, res) => {
   const { text, url, mode: requestedMode } = req.body;
 
+  // Guard: reject oversized payloads early
+  if (text && text.length > 500000) {
+    return res.status(413).json({ error: "Teks terlalu panjang. Maksimum 500KB." });
+  }
+
   try {
     // Determine mode: requested mode takes priority, then config
     const mode = requestedMode || config.mode;
@@ -208,9 +215,8 @@ router.post("/analyze", async (req, res) => {
     const cacheKey = hashText(articleText + `|mode:${mode}|ver:${CACHE_VERSION}`);
     const cached = getCached(cacheKey);
     if (cached && cached.mode === mode) {
-      // Migrate old cache data to current schema (handles missing wordCount, extracted_body, etc.)
+      metrics.cache.hits++;
       const migratedCache = migrateCache(cached);
-      
       return res.json({ 
         ...migratedCache,
         fromCache: true,
@@ -218,6 +224,7 @@ router.post("/analyze", async (req, res) => {
         sourceDomain: sourceDomain,
       });
     }
+    metrics.cache.misses++;
 
     // 1. Run all heuristics (instant, free)
     const struktur = analyzeStruktur(articleText);
@@ -431,29 +438,18 @@ router.post("/analyze", async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    console.error(err);
+    logger.error({ err, path: "/api/analyze" }, "Analyze error");
+    metrics.errors.total++;
+    metrics.errors.byType[err?.constructor?.name] = (metrics.errors.byType[err?.constructor?.name] || 0) + 1;
     return res
       .status(500)
       .json({ error: err.message || "Terjadi kesalahan saat analisis." });
   }
 });
 
-// Cache management endpoints
-router.get("/cache/stats", (req, res) => {
-  const stats = getCacheStats();
-  res.json({
-    ...stats,
-    schemaVersion: CACHE_SCHEMA_VERSION,
-  });
-});
-
-router.post("/cache/clear", (req, res) => {
-  const count = clearAllCache();
-  res.json({ 
-    success: true, 
-    message: `Cleared ${count} cache files`,
-    clearedCount: count 
-  });
+// Metrics endpoint
+router.get("/metrics", (req, res) => {
+  res.json(getMetrics());
 });
 
 // Get supported modes
@@ -494,7 +490,9 @@ router.post("/revise", async (req, res) => {
   if (!text || !text.trim()) {
     return res.status(400).json({ error: "Teks artikel diperlukan." });
   }
-
+  if (text && text.length > 100000) {
+    return res.status(413).json({ error: "Teks terlalu panjang untuk direvisi. Maksimum 100KB." });
+  }
   if (categories.length === 0) {
     return res.status(400).json({ error: "Pilih minimal satu kategori untuk direvisi." });
   }
@@ -503,7 +501,7 @@ router.post("/revise", async (req, res) => {
     const result = await reviseText(text, categories);
     return res.json(result);
   } catch (err) {
-    console.error("Revisi error:", err);
+    logger.error({ err, path: "/api/revise" }, "Revise error");
     return res.status(500).json({ error: err.message || "Gagal melakukan revisi." });
   }
 });
@@ -520,7 +518,7 @@ router.post("/classify", async (req, res) => {
     const result = await classifyArticle(text);
     return res.json(result);
   } catch (err) {
-    console.error("Classification error:", err);
+    logger.error({ err, path: "/api/classify" }, "Classification error");
     return res.status(500).json({ error: err.message || "Gagal mengklasifikasikan artikel." });
   }
 });
@@ -538,12 +536,10 @@ router.post("/hook-meter", async (req, res) => {
   if (!noCache) {
     const cached = getCached(cacheKey);
     if (cached) {
-      console.log(`Hook Meter cache HIT for text (${text.length} chars)`);
-      return res.json({ ...cached, fromCache: true });
+      logger.info({ chars: text.length }, "Hook Meter cache HIT");
+      return res.json(cached);
     }
-    console.log(`Hook Meter cache MISS for text (${text.length} chars)`);
-  } else {
-    console.log(`Hook Meter cache BYPASSED (noCache=true) for text (${text.length} chars)`);
+    logger.info({ chars: text.length }, "Hook Meter cache MISS");
   }
 
   try {
@@ -553,7 +549,7 @@ router.post("/hook-meter", async (req, res) => {
     }
     return res.json(result);
   } catch (err) {
-    console.error("Hook Meter error:", err);
+    logger.error({ err, path: "/api/hook-meter" }, "Hook Meter error");
     return res.status(500).json({ error: err.message || "Gagal menganalisis Hook Meter." });
   }
 });
@@ -593,7 +589,7 @@ router.post("/analyze-with-hook-meter", async (req, res) => {
       hookMeter
     });
   } catch (err) {
-    console.error("Analyze with Hook Meter error:", err);
+    logger.error({ err, path: "/api/analyze-with-hook-meter" }, "Analyze with Hook Meter error");
     return res.status(500).json({ error: err.message || "Gagal menganalisis artikel." });
   }
 });

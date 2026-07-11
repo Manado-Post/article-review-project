@@ -1,169 +1,135 @@
 // Cache berbasis file JSON, key = hash artikel.
-// Tujuan: hindari panggil LLM berulang untuk teks yang sama
-// (hemat biaya saat testing/revisi berulang).
-// 
-// Cache versioning: ketika schema berubah, increment CACHE_SCHEMA_VERSION
-// untuk auto-migrate data lama.
+// TTL 7 hari, max 5000 entry / 200MB, auto-eviction oldest.
 
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { logger } from "./logger.js";
 
 const CACHE_DIR = path.resolve("server/.cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-// Current schema version - increment when adding new fields
 export const CACHE_SCHEMA_VERSION = 5;
-
-// Default fields for backward compatibility
-// Add new fields here when schema changes
-export const DEFAULT_CACHE_FIELDS = {
-  wordCount: 0,
-  charCount: 0,
-  extracted_body: null,
-  cacheVersion: null,
-};
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MAX_CACHE_SIZE_MB = 200;
+const MAX_CACHE_COUNT = 5000;
+const EVICT_PERCENT = 0.2; // delete oldest 20% when full
 
 export const hashText = (text) =>
   crypto.createHash("sha256").update(text.trim()).digest("hex");
 
-/**
- * Migrate old cache data to current schema
- * Handles missing fields by adding defaults
- * @param {object} cached - Raw cached data
- * @returns {object} Migrated cache with all required fields
- */
 export const migrateCache = (cached) => {
-  if (!cached) return { ...DEFAULT_CACHE_FIELDS };
-  
-  // Recalculate wordCount from extracted_body if available
-  let wordCount = cached.wordCount || 0;
-  let charCount = cached.charCount || 0;
-  
-  if (cached.extracted_body) {
-    const words = cached.extracted_body.trim().split(/\s+/).filter(Boolean);
-    wordCount = words.length;
-    charCount = cached.extracted_body.length;
-  } else if (cached.articleText) {
-    // Fallback: try to get from articleText
-    const words = cached.articleText.trim().split(/\s+/).filter(Boolean);
-    wordCount = words.length;
-    charCount = cached.articleText.length;
+  if (!cached) {
+    return { wordCount: 0, charCount: 0, extracted_body: null, cacheVersion: null };
   }
   
-  // Merge defaults with cached data, preferring cached values
+  let wordCount = cached.wordCount || 0;
+  let charCount = cached.charCount || 0;
+  const sourceText = cached.extracted_body || cached.articleText;
+  
+  if (sourceText) {
+    wordCount = sourceText.trim().split(/\s+/).filter(Boolean).length;
+    charCount = sourceText.length;
+  }
+  
   return {
-    ...DEFAULT_CACHE_FIELDS,
     ...cached,
-    // Always recalculate these from available text
     wordCount,
     charCount,
-    // Ensure extracted_body exists (use articleText as fallback)
     extracted_body: cached.extracted_body || cached.articleText || null,
   };
-};
-
-/**
- * Check if cache is from current schema version
- * @param {object} cached - Cached data
- * @returns {boolean}
- */
-export const isCurrentVersion = (cached) => {
-  return cached?.cacheVersion === String(CACHE_SCHEMA_VERSION);
-};
+}
 
 export const getCached = (key) => {
   const filePath = path.join(CACHE_DIR, `${key}.json`);
   if (!fs.existsSync(filePath)) return null;
-  
   try {
     const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    // Check TTL
+    if (data.cachedAt && (Date.now() - new Date(data.cachedAt).getTime()) > CACHE_TTL_MS) {
+      fs.unlinkSync(filePath);
+      return null;
+    }
     return data;
   } catch (e) {
-    console.error(`Cache read error for ${key}:`, e.message);
     return null;
   }
 };
 
 export const setCached = (key, value) => {
   const filePath = path.join(CACHE_DIR, `${key}.json`);
-  
-  // Add schema version to cached data
-  const dataToSave = {
-    ...value,
-    cacheVersion: String(CACHE_SCHEMA_VERSION),
-    cachedAt: new Date().toISOString(),
-  };
-  
+  const dataToSave = { ...value, cacheVersion: String(CACHE_SCHEMA_VERSION), cachedAt: new Date().toISOString() };
   try {
     fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2));
+    evictIfNeeded(); // check size after write
   } catch (e) {
-    console.error(`Cache write error for ${key}:`, e.message);
+    // silently ignore write errors — cache miss is acceptable
   }
 };
 
-/**
- * Clear all cached data
- * Use when schema changes break old cache
- */
+// Delete oldest entries when cache exceeds limits
+const evictIfNeeded = () => {
+  try {
+    if (!fs.existsSync(CACHE_DIR)) return;
+    const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith(".json"));
+    let totalSize = 0;
+    const fileData = [];
+    for (const file of files) {
+      try {
+        const stat = fs.statSync(path.join(CACHE_DIR, file));
+        const data = JSON.parse(fs.readFileSync(path.join(CACHE_DIR, file), "utf-8"));
+        fileData.push({ file, size: stat.size, cachedAt: data.cachedAt || 0 });
+        totalSize += stat.size;
+      } catch (e) {
+        // skip corrupted
+      }
+    }
+    if (totalSize > MAX_CACHE_SIZE_MB * 1024 * 1024 || fileData.length > MAX_CACHE_COUNT) {
+      fileData.sort((a, b) => a.cachedAt - b.cachedAt);
+      const toDelete = Math.ceil(fileData.length * EVICT_PERCENT);
+      for (let i = 0; i < toDelete; i++) {
+        try { fs.unlinkSync(path.join(CACHE_DIR, fileData[i].file)); } catch (e) {}
+      }
+      logger.info({ deleted: toDelete, remaining: fileData.length - toDelete }, "Cache eviction");
+    }
+  } catch (e) {
+    // non-fatal
+  }
+};
+
 export const clearAllCache = () => {
   try {
-    if (fs.existsSync(CACHE_DIR)) {
-      const files = fs.readdirSync(CACHE_DIR);
-      files.forEach(file => {
-        fs.unlinkSync(path.join(CACHE_DIR, file));
-      });
-      return files.length;
-    }
-    return 0;
+    if (!fs.existsSync(CACHE_DIR)) return 0;
+    const files = fs.readdirSync(CACHE_DIR);
+    files.forEach(file => { try { fs.unlinkSync(path.join(CACHE_DIR, file)); } catch (e) {} });
+    return files.length;
   } catch (e) {
-    console.error("Clear cache error:", e.message);
     return 0;
   }
 };
 
-/**
- * Get cache statistics
- * @returns {object} Cache stats
- */
 export const getCacheStats = () => {
   try {
-    if (!fs.existsSync(CACHE_DIR)) {
-      return { count: 0, size: 0 };
-    }
-    
-    const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith('.json'));
+    if (!fs.existsSync(CACHE_DIR)) return { count: 0, size: 0 };
+    const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith(".json"));
     let totalSize = 0;
     let versionCounts = {};
-    
-    files.forEach(file => {
+    for (const file of files) {
       try {
         const stat = fs.statSync(path.join(CACHE_DIR, file));
         totalSize += stat.size;
-        
-        const data = JSON.parse(fs.readFileSync(path.join(CACHE_DIR, file), 'utf-8'));
-        const version = data.cacheVersion || 'unknown';
+        const data = JSON.parse(fs.readFileSync(path.join(CACHE_DIR, file), "utf-8"));
+        const version = data.cacheVersion || "unknown";
         versionCounts[version] = (versionCounts[version] || 0) + 1;
-      } catch (e) {
-        // Skip corrupted files
-      }
-    });
-    
+      } catch (e) {}
+    }
     return {
       count: files.length,
       size: totalSize,
-      sizeFormatted: formatBytes(totalSize),
+      sizeFormatted: totalSize < 1024 ? `${totalSize} B` : totalSize < 1048576 ? `${(totalSize / 1024).toFixed(1)} KB` : `${(totalSize / 1048576).toFixed(1)} MB`,
       versions: versionCounts,
     };
   } catch (e) {
-    return { count: 0, size: 0, error: e.message };
+    return { count: 0, size: 0 };
   }
-};
-
-const formatBytes = (bytes) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };

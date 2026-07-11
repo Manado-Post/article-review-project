@@ -5,8 +5,10 @@
 
 import * as cheerio from "cheerio";
 import puppeteer from "puppeteer-core";
+import pLimit from "p-limit";
 import fs from "fs";
 import path from "path";
+import { logger } from "./logger.js";
 
 // Common Chrome/Edge paths for different environments
 const CHROME_PATHS = {
@@ -41,6 +43,34 @@ const isValidUrl = (url) => {
   } catch {
     return false;
   }
+};
+
+// Puppeteer concurrency control — max 3 concurrent browser instances
+const PUPPETEER_CONCURRENCY = 3;
+const puppeteerQueue = pLimit(PUPPETEER_CONCURRENCY);
+
+// Browser pool — reuse one browser instance for all scraping
+let browserPool = null;
+const BROWSER_TIMEOUT_MS = 60000; // 60s per scraping job
+
+const getBrowser = async () => {
+  if (!browserPool || !browserPool.connected) {
+    const chromePath = findChromePath();
+    if (!chromePath) return null;
+    browserPool = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--disable-gpu",
+        "--window-size=1920x1080",
+      ],
+    });
+  }
+  return browserPool;
 };
 
 /**
@@ -391,97 +421,62 @@ const isManadoPostSite = (url) => {
 /**
  * Extract article using Puppeteer (headless Chrome) for JavaScript-rendered content
  * Handles "Show All" pagination buttons
+ * Uses browser pool (reuses single browser instance) + concurrency queue (max 3)
  * @param {string} url - The URL to fetch
- * @returns {Promise<{text: string, title: string, metadata: object}>}
+ * @returns {Promise<{text: string, title: string, metadata: object}|null>}
  */
 const fetchWithPuppeteer = async (url) => {
-  const chromePath = await findChromePath();
-  if (!chromePath) {
-    throw new Error("Chrome not found. Cannot use Puppeteer mode.");
-  }
-
-  const browser = await puppeteer.launch({
-    executablePath: chromePath,
-    headless: "new",
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--disable-gpu",
-      "--window-size=1920x1080",
-    ],
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
-    
-    // Set realistic user agent
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
-
-    // Navigate to URL
-    await page.goto(url, {
-      waitUntil: "networkidle2",
-      timeout: 30000,
-    });
-
-    // Wait for content to load (use Promise-based timeout for compatibility)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Try to click "Show All" buttons
-    const showAllSelectors = [
-      "button:has-text('Show All')",
-      "button:has-text('Show all')",
-      "button:has-text('Lihat Semua')",
-      "button:has-text('Lihat semua')",
-      "button:has-text('Baca Selengkapnya')",
-      "button:has-text('Selengkapnya')",
-      "a:has-text('Show All')",
-      "a:has-text('Lihat Semua')",
-      "[data-load-more]",
-      ".load-more",
-      ".show-more",
-      "#show-more",
-      ".btn-show-all",
-    ];
-
-    for (const selector of showAllSelectors) {
-      try {
-        const button = await page.$(selector);
-        if (button) {
-          // Scroll button into view first
-          await button.evaluate((el) => el.scrollIntoView({ behavior: "instant", block: "center" }));
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Click the button
-          await button.click();
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for content to load
-        }
-      } catch {
-        // Button not found or cannot click, continue
-      }
+  return puppeteerQueue(async () => {
+    const browser = await getBrowser();
+    if (!browser) {
+      logger.warn({ url }, "Puppeteer skipped: Chrome not found");
+      return null;
     }
 
-    // Scroll page to trigger lazy loading (infinite scroll sites)
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Try scrolling again (some sites need multiple scrolls)
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    let page;
+    try {
+      page = await browser.newPage();
+      await page.setViewport({ width: 1920, height: 1080 });
+      
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
 
-    // Check if this is a manadopost site
-    const isManadoPost = isManadoPostSite(url);
+      // Navigate with individual timeout
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-    // Extract article content
-    const result = await page.evaluate((isManadoPost) => {
+      // Wait for JS rendering
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Click "Show All" buttons if present
+      const showAllSelectors = [
+        "button:has-text('Show All')", "button:has-text('Show all')",
+        "button:has-text('Lihat Semua')", "button:has-text('Lihat semua')",
+        "button:has-text('Baca Selengkapnya')", "button:has-text('Selengkapnya')",
+        "a:has-text('Show All')", "a:has-text('Lihat Semua')",
+        "[data-load-more]", ".load-more", ".show-more", "#show-more", ".btn-show-all",
+      ];
+
+      for (const selector of showAllSelectors) {
+        try {
+          const button = await page.$(selector);
+          if (button) {
+            await button.evaluate((el) => el.scrollIntoView({ behavior: "instant", block: "center" }));
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await button.click();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        } catch { /* skip individual button errors */ }
+      }
+
+      // Scroll to load lazy content
+      for (let i = 0; i < 2; i++) {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      const isManadoPost = isManadoPostSite(url);
+      const result = await page.evaluate((isManadoPost) => {
       // Remove unwanted elements
       const removeSelectors = [
         "script", "style", "nav", "header", "footer", "aside",
@@ -637,7 +632,7 @@ const fetchWithPuppeteer = async (url) => {
     }, isManadoPost);
 
     if (!result.text || result.text.length < 100) {
-      throw new Error("Puppeteer: No content extracted");
+      return null;
     }
 
     return {
@@ -645,9 +640,11 @@ const fetchWithPuppeteer = async (url) => {
       title: result.title,
       metadata: result.metadata || {}
     };
-  } finally {
-    await browser.close();
-  }
+    } finally {
+      // Close page (not browser — reuse from pool)
+      if (page) await page.close().catch(() => {});
+    }
+  });
 };
 
 /**
@@ -741,15 +738,15 @@ export const fetchArticleFromUrl = async (url) => {
             length: ampExtracted.text.length
           });
         }
-      } catch {
-        // AMP fetch failed
+      } catch (ampError) {
+        logger.warn({ url: ampUrl, error: ampError.message }, "AMP extraction failed");
       }
     }
 
     // Step 3: Try Puppeteer for JS-rendered content / Show All pagination
     // This is the MAIN method for manadopost since it's a SPA
-    try {
-      const puppeteerResult = await fetchWithPuppeteer(url);
+    const puppeteerResult = await fetchWithPuppeteer(url);
+    if (puppeteerResult) {
       if (puppeteerResult.text && puppeteerResult.text.length >= 100) {
         results.push({
           text: puppeteerResult.text,
@@ -759,19 +756,21 @@ export const fetchArticleFromUrl = async (url) => {
           length: puppeteerResult.text.length
         });
       }
-    } catch (puppeteerError) {
-      console.log("Puppeteer failed:", puppeteerError.message);
+    } else {
+      // Chrome not available — skip Puppeteer silently
     }
 
     // Find the longest result
     if (results.length > 0) {
       const best = results.reduce((a, b) => a.length > b.length ? a : b);
-      console.log(`Best extraction: ${best.method} (${best.length} chars) from ${results.length} methods`);
+      logger.info({ method: best.method, chars: best.length, methodsTried: results.length }, "URL extraction done");
       return {
         text: best.text,
         title: best.title,
         domain: domain,
         metadata: best.metadata || {},
+        extractionMethod: best.method,
+        extractionCount: results.length,
       };
     }
 
