@@ -540,45 +540,52 @@ const fetchWithPuppeteer = async (url) => {
 
       // For manadopost/jawapos sites: use specific selectors
       if (isManadoPost) {
-        // Primary: p.isSelectedEnd with span inside (manadopost structure)
-        const manadoSelectors = [
-          // Direct paragraph content (manadopost specific)
-          "p.isSelectedEnd span",
-          "p.isSelectedEnd",
-          // Container-based approach
-          ".artikel p.isSelectedEnd span",
-          ".artikel p.isSelectedEnd",
-          // Article container
-          ".artikel",
-        ];
-
-        for (const selector of manadoSelectors) {
-          const elements = document.querySelectorAll(selector);
-          if (elements.length > 0) {
-            const texts = Array.from(elements)
-              .map((el) => el.textContent?.trim())
-              .filter((text) => text && text.length > 20 && !text.match(/^\s*&nbsp;\s*$/));
-            
-            if (texts.length > 0) {
-              contentText = texts.join("\n\n");
-              if (contentText.length > 200) break;
+        // Primary: p.isSelectedEnd - collect ALL paragraphs, not just first match
+        // manadopost has paragraphs with class "isSelectedEnd" containing article text
+        const manadoParagraphs = [];
+        
+        // Selector 1: p.isSelectedEnd span (paragraphs with span inside)
+        document.querySelectorAll("p.isSelectedEnd").forEach(el => {
+          const span = el.querySelector("span");
+          const text = span ? span.textContent?.trim() : el.textContent?.trim();
+          if (text && text.length > 10 && !text.match(/^\s*&nbsp;\s*$/)) {
+            manadoParagraphs.push(text);
+          }
+        });
+        
+        // Selector 2: .artikel .rt-Text p (alternative structure)
+        if (manadoParagraphs.length < 5) {
+          document.querySelectorAll(".artikel .rt-Text p").forEach(el => {
+            const text = el.textContent?.trim();
+            if (text && text.length > 10 && !text.match(/^\s*&nbsp;\s*$/) && !el.classList.contains("isSelectedEnd")) {
+              manadoParagraphs.push(text);
+            }
+          });
+        }
+        
+        // Selector 3: .artikel container direct text (last resort)
+        if (manadoParagraphs.length < 5) {
+          const artikelEl = document.querySelector(".artikel");
+          if (artikelEl) {
+            // Get all text nodes from article container
+            const walker = document.createTreeWalker(
+              artikelEl,
+              NodeFilter.SHOW_TEXT,
+              null,
+              false
+            );
+            let textNode;
+            while (textNode = walker.nextNode()) {
+              const text = textNode.textContent?.trim();
+              if (text && text.length > 20 && !text.match(/^\s*&nbsp;/) && !text.match(/MANADOPOST\.ID/)) {
+                manadoParagraphs.push(text);
+              }
             }
           }
         }
-
-        // If still no content, try alternative structure
-        if (!contentText || contentText.length < 200) {
-          // Try extracting from article div with rt-Text class
-          const articleDivs = document.querySelectorAll(".artikel .rt-Text p");
-          if (articleDivs.length > 0) {
-            const texts = Array.from(articleDivs)
-              .map((el) => el.textContent?.trim())
-              .filter((text) => text && text.length > 20);
-            
-            if (texts.length > 0) {
-              contentText = texts.join("\n\n");
-            }
-          }
+        
+        if (manadoParagraphs.length > 0) {
+          contentText = manadoParagraphs.join("\n\n");
         }
       }
 

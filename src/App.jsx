@@ -1735,6 +1735,14 @@ function App() {
                       Sumber: {result.sourceDomain}
                     </p>
                   )}
+                  {result.wordCount && (
+                    <p className="mt-1 text-sm text-slate-500">
+                      {result.wordCount.toLocaleString('id-ID')} kata diekstrak
+                      {result.wordCount < 400 && (
+                        <span className="text-amber-600"> (minimum 400 kata untuk Hook Meter)</span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 max-w-2xl text-slate-600">
                     {result.summary}
                   </p>
