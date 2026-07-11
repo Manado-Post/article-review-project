@@ -8,6 +8,8 @@ import {
   analyzeKonten,
   analyzeEtika,
   analyzeAudiens,
+  detectVerificationNeeded,
+  detectTypoAIArtifacts,
 } from "../services/heuristics.js";
 import { evaluateWithLLM, reviseText, classifyArticle, analyzeHookMeter } from "../services/llmEvaluator.js";
 import { hashText, getCached, setCached } from "../services/cache.js";
@@ -80,6 +82,90 @@ const estimateLLMScores = (struktur, bahasa, seo, text) => {
       note: "[Estimasi otomatis - mode lokal]" 
     }
   };
+};
+
+/**
+ * Build comprehensive highlights array from all detection sources
+ */
+const buildHighlights = (articleText, llmResult, bahasaHeuristik) => {
+  const highlights = [];
+  const seenTexts = new Set();
+  
+  // Helper to add highlight with deduplication
+  const addHighlight = (highlight) => {
+    const key = highlight.text?.slice(0, 50) || '';
+    if (key && !seenTexts.has(key)) {
+      seenTexts.add(key);
+      highlights.push(highlight);
+    }
+  };
+  
+  // 1. Add verification-needed statements
+  const verificationItems = detectVerificationNeeded(articleText);
+  verificationItems.forEach(item => {
+    addHighlight({
+      type: 'verify',
+      text: item.text,
+      note: item.note,
+      category: 'verification',
+    });
+  });
+  
+  // 2. Add typo/AI artifacts
+  const typoItems = detectTypoAIArtifacts(articleText);
+  typoItems.forEach(item => {
+    addHighlight({
+      type: 'typo',
+      text: item.text,
+      note: item.note,
+      category: 'typo',
+    });
+  });
+  
+  // 3. Add language weaknesses from heuristics (passive, complex, formal)
+  if (bahasaHeuristik?.weaknesses) {
+    bahasaHeuristik.weaknesses.forEach(w => {
+      if (w.text && w.type) {
+        // Map types to display types
+        let displayType = 'warn';
+        if (w.type === 'complex') {
+          displayType = 'warn';
+        } else if (w.type === 'passive') {
+          displayType = 'warn';
+        } else if (w.type === 'formal') {
+          displayType = 'warn';
+        }
+        
+        addHighlight({
+          type: displayType,
+          text: w.text,
+          note: w.note || `Kalimat ${w.type}`,
+          category: w.type,
+        });
+      }
+    });
+  }
+  
+  // 4. Add LLM highlights if available
+  if (llmResult?.highlights && Array.isArray(llmResult.highlights)) {
+    llmResult.highlights.forEach(h => {
+      if (h.text) {
+        addHighlight({
+          type: h.type || 'warn',
+          text: h.text,
+          note: h.note || '',
+          category: h.category || 'llm',
+        });
+      }
+    });
+  }
+  
+  // Sort by type priority: verify > typo > warn > bad > good
+  const typePriority = { verify: 0, typo: 1, warn: 2, bad: 3, good: 4 };
+  highlights.sort((a, b) => (typePriority[a.type] || 5) - (typePriority[b.type] || 5));
+  
+  // Limit to 10 highlights
+  return highlights.slice(0, 10);
 };
 
 router.post("/analyze", async (req, res) => {
@@ -318,7 +404,9 @@ router.post("/analyze", async (req, res) => {
           }
         },
       ],
-      highlights: Array.isArray(llmResult.highlights) ? llmResult.highlights : [],
+      
+      // Build comprehensive highlights from all sources
+      highlights: buildHighlights(articleText, llmResult, bahasaHeuristik),
       verificationFlags: Array.isArray(verificationFlags.flags) ? verificationFlags.flags : [],
       verificationSummary: verificationFlags.summary,
       sourceUrl: sourceUrl,
@@ -409,21 +497,30 @@ router.post("/classify", async (req, res) => {
 
 // Analyze Hook Meter (storytelling quality) with caching
 router.post("/hook-meter", async (req, res) => {
-  const { text } = req.body;
+  const { text, noCache } = req.body;
 
   if (!text || !text.trim()) {
     return res.status(400).json({ error: "Teks artikel diperlukan." });
   }
 
+  // Only use cache if noCache is not explicitly true
   const cacheKey = hashText(text + "|hook-meter|v1");
-  const cached = getCached(cacheKey);
-  if (cached) {
-    return res.json({ ...cached, fromCache: true });
+  if (!noCache) {
+    const cached = getCached(cacheKey);
+    if (cached) {
+      console.log(`Hook Meter cache HIT for text (${text.length} chars)`);
+      return res.json({ ...cached, fromCache: true });
+    }
+    console.log(`Hook Meter cache MISS for text (${text.length} chars)`);
+  } else {
+    console.log(`Hook Meter cache BYPASSED (noCache=true) for text (${text.length} chars)`);
   }
 
   try {
     const result = await analyzeHookMeter(text);
-    setCached(cacheKey, result);
+    if (!noCache) {
+      setCached(cacheKey, result);
+    }
     return res.json(result);
   } catch (err) {
     console.error("Hook Meter error:", err);
