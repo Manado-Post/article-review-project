@@ -10,14 +10,19 @@ import manadoPostWordmark from "./assets/logo.webp";
 
 // Masthead with logo - RESPONSIVE
 const Masthead = () => (
-  <header className="mb-6 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
+<header className="mb-2 flex items-center justify-between gap-2 sm:mb-2 sm:gap-2">
     <div className="flex flex-shrink-0 items-center">
       {/* Logo - Responsive sizing */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-16 w-16 flex-shrink-0 rounded-xl object-contain sm:h-20 sm:w-20"
-        style={{ maxWidth: '110px', maxHeight: '110px' }}
+        className="h-24 w-24 flex-shrink-0 rounded-xl object-contain sm:h-32 sm:w-32"
+        style={{ 
+          maxWidth: '160px', 
+          maxHeight: '160px',
+          marginTop: '-4px',    // Tarik ke atas agar tidak melebar
+          marginBottom: '-4px'  // Tarik ke bawah agar tidak melebar
+        }}
       />
       {/* Wordmark - responsive sizing */}
       <img
@@ -26,7 +31,7 @@ const Masthead = () => (
         className="h-10 w-auto object-contain sm:h-14"
         style={{ 
           maxHeight: '70px',
-          marginLeft: '-6px'
+          marginLeft: '-12px'
         }}
       />
     </div>
@@ -1025,64 +1030,14 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
 // ============================================
 // HIGHLIGHTED ARTICLE TEXT COMPONENT
 // ============================================
+// HIGHLIGHTED ARTICLE TEXT COMPONENT - LABEL STYLE "4 SOROTAN"
+// ============================================
 
-/**
- * Component to display article text with inline highlighted sentences
- * Click on highlighted sentences to scroll to Sorotan Kalimat section
- */
 const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scrollToHighlights }) => {
   const articleRef = useRef(null);
   
-  // Colors for different highlight types
-  const typeColors = {
-    verify: {
-      bg: 'bg-orange-100',
-      border: 'border-orange-300',
-      text: 'text-orange-800',
-      label: '🟠 Verifikasi',
-    },
-    typo: {
-      bg: 'bg-purple-100',
-      border: 'border-purple-300', 
-      text: 'text-purple-800',
-      label: '🟣 Typo/AI',
-    },
-    warn: {
-      bg: 'bg-amber-100',
-      border: 'border-amber-300',
-      text: 'text-amber-800',
-      label: '🟡 Perhatian',
-    },
-    bad: {
-      bg: 'bg-rose-100',
-      border: 'border-rose-300',
-      text: 'text-rose-800',
-      label: '🔴 Serius',
-    },
-    good: {
-      bg: 'bg-emerald-100',
-      border: 'border-emerald-300',
-      text: 'text-emerald-800',
-      label: '🟢 Baik',
-    },
-  };
-  
-  // Create a map of highlighted text to their highlight info
-  const highlightMap = new Map();
-  if (highlights && highlights.length > 0) {
-    highlights.forEach((h, idx) => {
-      // Use first 50 chars as key for matching
-      const key = h.text?.slice(0, 50)?.toLowerCase() || '';
-      if (key && !highlightMap.has(key)) {
-        highlightMap.set(key, { ...h, index: idx });
-      }
-    });
-  }
-  
-  // Split text into paragraphs
   const paragraphs = articleText?.split(/\n\n+/) || [];
   
-  // Check if a paragraph contains any highlights
   const getParagraphHighlights = (para) => {
     if (!highlights || highlights.length === 0) return [];
     return highlights.filter(h => {
@@ -1091,39 +1046,35 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
     });
   };
   
-  // Render paragraph with inline highlights
   const renderParagraph = (para, paraIndex) => {
     const matchingHighlights = getParagraphHighlights(para);
     const hasHighlights = matchingHighlights.length > 0;
     
     if (!hasHighlights) {
       return (
-        <p key={paraIndex} className="mb-4 text-slate-700 leading-relaxed">
+        <p key={paraIndex} className="mb-4 text-slate-600 leading-relaxed last:mb-0">
           {para}
         </p>
       );
     }
     
-    // Split paragraph by highlight matches
     const parts = [];
     let lastIndex = 0;
     const paraLower = para.toLowerCase();
     
-    // Sort highlights by their position in text
     const sortedHighlights = [...matchingHighlights].sort((a, b) => {
       const aPos = paraLower.indexOf(a.text?.slice(0, 50)?.toLowerCase() || '');
       const bPos = paraLower.indexOf(b.text?.slice(0, 50)?.toLowerCase() || '');
       return aPos - bPos;
     });
     
-    sortedHighlights.forEach((highlight, hIdx) => {
+    sortedHighlights.forEach((highlight) => {
       const highlightText = highlight.text?.slice(0, 150) || '';
       const highlightKey = highlight.text?.slice(0, 50)?.toLowerCase() || '';
       const pos = paraLower.indexOf(highlightKey, lastIndex);
       
       if (pos === -1) return;
       
-      // Add text before highlight
       if (pos > lastIndex) {
         parts.push({
           type: 'normal',
@@ -1131,7 +1082,6 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
         });
       }
       
-      // Add highlighted text
       parts.push({
         type: 'highlight',
         text: para.slice(pos, pos + highlightText.length),
@@ -1142,7 +1092,6 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
       lastIndex = pos + highlightText.length;
     });
     
-    // Add remaining text
     if (lastIndex < para.length) {
       parts.push({
         type: 'normal',
@@ -1150,52 +1099,49 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
       });
     }
     
+    // Ambil label dari highlight pertama
+    const firstHighlight = matchingHighlights[0];
+    let labelText = 'Perhatian';
+    
+    if (firstHighlight?.category === 'passive') {
+      labelText = 'Kalimat Pasif';
+    } else if (firstHighlight?.category === 'complex') {
+      labelText = 'Kalimat Kompleks';
+    } else if (firstHighlight?.category === 'formal') {
+      labelText = 'Kata Formal';
+    } else if (firstHighlight?.category === 'verification') {
+      labelText = 'Verifikasi';
+    } else if (firstHighlight?.category === 'typo') {
+      labelText = 'Typo';
+    }
+    
     return (
-      <div key={paraIndex} className="mb-4">
-        <p className="text-slate-700 leading-relaxed">
+      <div key={paraIndex} className="mb-4 last:mb-0">
+        {/* Teks paragraf dengan underline pada highlight */}
+        <p className="text-slate-600 leading-relaxed">
           {parts.map((part, idx) => {
             if (part.type === 'normal') {
               return <span key={idx}>{part.text}</span>;
             }
             
-            const colors = typeColors[part.highlight.type] || typeColors.warn;
-            
             return (
-              <mark
+              <span
                 key={idx}
-                className={`${colors.bg} ${colors.border} border rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity`}
+                className="text-blue-600 underline decoration-blue-400 decoration-2 underline-offset-2 cursor-pointer hover:text-blue-800 hover:decoration-blue-600 transition-colors"
                 onClick={() => onHighlightClick?.(part.highlight)}
-                title={part.highlight.note || `Klik untuk melihat di Sorotan Kalimat`}
+                title={part.highlight.note || 'Klik untuk melihat di Sorotan Kalimat'}
               >
                 {part.text}
-              </mark>
+              </span>
             );
           })}
         </p>
         
-        {/* Show highlight badges below paragraph */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {matchingHighlights.map((h, idx) => {
-            const colors = typeColors[h.type] || typeColors.warn;
-            return (
-              <button
-                key={idx}
-                onClick={() => onHighlightClick?.(h)}
-                className={`text-xs px-2 py-1 rounded-full ${colors.bg} ${colors.text} font-medium hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer`}
-              >
-                <span>{colors.label}</span>
-                {h.category && h.category !== 'llm' && (
-                  <span className="text-xs opacity-75">
-                    {h.category === 'passive' ? 'Pasif' :
-                     h.category === 'complex' ? 'Kompleks' :
-                     h.category === 'formal' ? 'Formal' :
-                     h.category === 'verification' ? 'Verifikasi' :
-                     h.category === 'typo' ? 'Typo' : h.category}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Label dengan style seperti "4 sorotan" - bold + background abu-abu */}
+        <div className="mt-1.5">
+          <span className="rounded-full bg-slate-200 px-3 py-0.5 text-xs font-medium text-slate-600">
+            {labelText}
+          </span>
         </div>
       </div>
     );
@@ -1204,31 +1150,38 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
   return (
     <div 
       ref={articleRef}
-      className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200"
+      className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden"
     >
-      <div className="flex items-center gap-2 mb-4">
-        <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <h3 className="text-lg font-semibold text-blue-950">Teks Artikel</h3>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <div className="flex items-center gap-2">
+          <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-slate-800">Teks Artikel</h3>
+        </div>
         {highlights && highlights.length > 0 && (
-          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+          <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
             {highlights.length} sorotan
           </span>
         )}
       </div>
       
-      <div className="text-sm leading-relaxed max-h-96 overflow-y-auto">
+      {/* Isi */}
+      <div className="p-6 max-h-96 overflow-y-auto">
         {paragraphs.length > 0 ? (
           paragraphs.map((para, idx) => renderParagraph(para, idx))
         ) : (
-          <p className="text-slate-500 italic">Tidak ada teks artikel.</p>
+          <p className="text-slate-400 italic">Tidak ada teks artikel.</p>
         )}
       </div>
       
-      <p className="mt-4 text-xs text-slate-400">
-        💡 Klik kalimat yang di-highlight untuk melihat detail di Sorotan Kalimat
-      </p>
+      {/* Footer */}
+      <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
+        <p className="text-xs text-slate-400">
+          💡 Klik teks bergaris bawah untuk melihat detail di Sorotan Kalimat
+        </p>
+      </div>
     </div>
   );
 };
@@ -1801,126 +1754,104 @@ function App() {
               )}
 
               {/* Highlights Section - Only show if there are highlights */}
+              {/* Highlights Section - DESAIN BARU (Tanpa "Klik untuk kembali ke teks artikel") */}
               {result.highlights && result.highlights.length > 0 && (
-                <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200" ref={highlightsRef}>
-                  <button
-                    type="button"
-                    onClick={() => setHighlightsExpanded(!highlightsExpanded)}
-                    className="flex w-full items-center justify-between p-6 text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold text-blue-950">
-                        Sorotan Kalimat
-                      </h3>
-                      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden" ref={highlightsRef}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <h3 className="text-lg font-semibold text-slate-800">Sorotan Kalimat</h3>
+                      <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
                         {result.highlights.length}
                       </span>
-                      {/* Info tooltip */}
-                      <span className="group relative">
-                        <svg className="h-4 w-4 text-slate-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-64 rounded-lg bg-slate-800 p-3 text-xs text-white shadow-lg group-hover:block z-10">
-                          <p className="font-medium mb-1">Tentang Sorotan Kalimat</p>
-                          <p className="text-slate-300">Sorotan Kalimat menampilkan kalimat-kalimat yang perlu perhatian khusus berdasarkan hasil analisis, seperti kalimat yang terlalu panjang, ambigu, atau berpotensi menimbulkan masalah etika.</p>
-                          <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                        </div>
-                      </span>
                     </div>
-                    <ChevronIcon 
-                      className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
-                    />
-                  </button>
-                  
-                  {highlightsExpanded && (
-                    <div className="border-t border-slate-100 px-6 pb-6 pt-2">
-                      <div className="grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
-                        {result.highlights.map((item, idx) => {
-                          // Determine styling based on type
-                          const typeConfig = {
-                            verify: {
-                              border: 'border-orange-200 bg-orange-50',
-                              label: 'Perlu Verifikasi',
-                              badge: 'bg-orange-100 text-orange-700',
-                            },
-                            typo: {
-                              border: 'border-purple-200 bg-purple-50',
-                              label: 'Typo / AI Artifact',
-                              badge: 'bg-purple-100 text-purple-700',
-                            },
-                            warn: {
-                              border: 'border-amber-200 bg-amber-50',
-                              label: 'Perlu Perhatian',
-                              badge: 'bg-amber-100 text-amber-700',
-                            },
-                            bad: {
-                              border: 'border-rose-200 bg-rose-50',
-                              label: 'Perlu Perbaikan Serius',
-                              badge: 'bg-rose-100 text-rose-700',
-                            },
-                            good: {
-                              border: 'border-emerald-200 bg-emerald-50',
-                              label: 'Baik',
-                              badge: 'bg-emerald-100 text-emerald-700',
-                            },
-                          };
-                          
-                          const config = typeConfig[item.type] || typeConfig.warn;
-                          
-                          // Category badge mapping
-                          const categoryLabels = {
-                            verification: 'Verifikasi',
-                            typo: 'Typo',
-                            passive: 'Kalimat Pasif',
-                            complex: 'Kalimat Kompleks',
-                            formal: 'Kata Formal',
-                            puebi: 'PUEBI',
-                            llm: 'LLM Analysis',
-                          };
-                          
-                          return (
-                            <div
-                              key={idx}
-                              className={`rounded-3xl border p-4 cursor-pointer transition-all ${config.border} ${
-                                activeHighlightIndex === idx 
-                                  ? 'ring-2 ring-blue-500 shadow-lg' 
-                                  : 'hover:shadow-md'
-                              }`}
-                              onClick={() => {
-                                // Clear active highlight when clicked (scroll back to article)
-                                setActiveHighlightIndex(null);
-                              }}
-                            >
-                              {activeHighlightIndex === idx && (
-                                <div className="mb-2 text-xs text-blue-600 font-medium flex items-center gap-1">
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                  </svg>
-                                  Klik untuk kembali ke teks artikel
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.badge}`}>
-                                  {config.label}
-                                </span>
-                                {item.category && (
-                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                    {categoryLabels[item.category] || item.category}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-2 text-slate-700">{item.text}</p>
-                              {item.note && (
-                                <p className="mt-2 text-sm text-slate-500 italic">
-                                  {item.note}
-                                </p>
-                              )}
+                  </div>
+
+                  {/* Daftar Sorotan */}
+                  <div className="p-4 max-h-96 overflow-y-auto space-y-3">
+                    {result.highlights.map((item, idx) => {
+                      // Tentukan warna berdasarkan kategori
+                      let categoryLabel = 'Perhatian';
+                      let categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
+                      let severityLabel = 'Perlu Perbaikan';
+                      let severityColor = 'bg-amber-100 text-amber-700';
+                      
+                      if (item.category === 'passive') {
+                        categoryLabel = 'Kalimat Pasif';
+                        categoryColor = 'bg-yellow-50 border-yellow-200 text-yellow-700';
+                        severityLabel = 'Perlu Perbaikan';
+                        severityColor = 'bg-amber-100 text-amber-700';
+                      } else if (item.category === 'complex') {
+                        categoryLabel = 'Kalimat Kompleks';
+                        categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
+                      } else if (item.category === 'formal') {
+                        categoryLabel = 'Kata Formal';
+                        categoryColor = 'bg-purple-50 border-purple-200 text-purple-700';
+                      } else if (item.category === 'verification') {
+                        categoryLabel = 'Verifikasi';
+                        categoryColor = 'bg-orange-50 border-orange-200 text-orange-700';
+                      } else if (item.category === 'typo') {
+                        categoryLabel = 'Typo';
+                        categoryColor = 'bg-pink-50 border-pink-200 text-pink-700';
+                      }
+                      
+                      // Ambil kata pasif dari note
+                      let passiveWord = '';
+                      if (item.note && item.note.includes('Kalimat pasif:')) {
+                        const match = item.note.match(/Kalimat pasif:\s*"([^"]+)"/);
+                        if (match) passiveWord = match[1];
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setActiveHighlightIndex(idx)}
+                          className={`rounded-xl border p-4 cursor-pointer transition-all ${
+                            activeHighlightIndex === idx
+                              ? 'ring-2 ring-blue-500 shadow-md border-blue-300'
+                              : 'border-slate-200 hover:shadow-md hover:border-slate-300'
+                          } ${categoryColor}`}
+                        >
+                          {/* Header item: Kategori + Severity */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold">
+                                ⚠️ {categoryLabel}
+                              </span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${severityColor}`}>
+                              {severityLabel}
+                            </span>
+                          </div>
+
+                          {/* Kalimat yang disorot */}
+                          <p className="text-sm text-slate-700 leading-relaxed mb-2">
+                            "{item.text}"
+                          </p>
+
+                          {/* Detail tambahan - HANYA kata pasif, tanpa "Klik untuk kembali" */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                            {passiveWord && (
+                              <span className="text-slate-500">
+                                📝 Kata pasif: <span className="font-mono text-slate-700">"{passiveWord}"</span>
+                              </span>
+                            )}
+                            {item.note && !item.note.includes('Kalimat pasif:') && (
+                              <span className="text-slate-500">📝 {item.note}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
+                    {/* Footer dikosongkan */}
+                  </div>
                 </div>
               )}
               
