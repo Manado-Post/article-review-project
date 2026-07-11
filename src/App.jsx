@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import mdopostLogo from "./assets/logo-mdopost.png";
 import manadoPostWordmark from "./assets/logo.webp";
 
@@ -8,25 +8,25 @@ import manadoPostWordmark from "./assets/logo.webp";
 
 // Masthead with logo and title
 
-// Masthead with logo - NEGATIVE MARGIN
+// Masthead with logo - RESPONSIVE
 const Masthead = () => (
   <header className="mb-6 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
     <div className="flex flex-shrink-0 items-center">
-      {/* Logo */}
+      {/* Logo - Responsive sizing */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
         className="h-16 w-16 flex-shrink-0 rounded-xl object-contain sm:h-20 sm:w-20"
-        style={{ width: '100px', height: '100px' }}
+        style={{ maxWidth: '110px', maxHeight: '110px' }}
       />
-      {/* Wordmark - dengan margin negatif untuk mendekat */}
+      {/* Wordmark - responsive sizing */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
-        className="h-12 w-auto object-contain sm:h-16"
+        className="h-10 w-auto object-contain sm:h-14"
         style={{ 
-          height: '60px',
-          marginLeft: '-8px' // Mendekatkan dengan margin negatif
+          maxHeight: '70px',
+          marginLeft: '-6px'
         }}
       />
     </div>
@@ -815,7 +815,7 @@ const MetricBar = ({ label, score, strength, weakness }) => (
   </div>
 );
 
-const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
+const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
   const [expanded, setExpanded] = useState(false);
   
   if (loading) {
@@ -829,16 +829,35 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
     );
   }
   
+  // Show message when local mode is used (Hook Meter requires LLM)
+  if (mode === 'local') {
+    return (
+      <div className="rounded-3xl bg-slate-50 p-6 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-start gap-2 text-slate-500">
+          <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <span className="text-sm font-medium">Hook Meter tidak berlaku untuk artikel ini</span>
+            <p className="mt-1 text-xs text-slate-400">Hook Meter membutuhkan mode Hybrid atau LLM Penuh</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   if (!hookMeter || hookMeter.skipped) {
     return (
       <div className="rounded-3xl bg-slate-50 p-6 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center gap-2 text-slate-500">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-start gap-2 text-slate-500">
+          <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-sm">Hook Meter tidak berlaku untuk artikel ini</span>
+          <div>
+            <span className="text-sm font-medium">Hook Meter tidak berlaku untuk artikel ini</span>
+            <p className="mt-1 text-xs text-slate-400">{hookMeter?.reason || 'Artikel terlalu pendek atau bukan tipe naratif'}</p>
+          </div>
         </div>
-        <p className="mt-2 text-xs text-slate-400">{hookMeter?.reason || 'Artikel terlalu pendek atau bukan tipe naratif'}</p>
       </div>
     );
   }
@@ -1003,6 +1022,217 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze }) => {
   );
 };
 
+// ============================================
+// HIGHLIGHTED ARTICLE TEXT COMPONENT
+// ============================================
+
+/**
+ * Component to display article text with inline highlighted sentences
+ * Click on highlighted sentences to scroll to Sorotan Kalimat section
+ */
+const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scrollToHighlights }) => {
+  const articleRef = useRef(null);
+  
+  // Colors for different highlight types
+  const typeColors = {
+    verify: {
+      bg: 'bg-orange-100',
+      border: 'border-orange-300',
+      text: 'text-orange-800',
+      label: '🟠 Verifikasi',
+    },
+    typo: {
+      bg: 'bg-purple-100',
+      border: 'border-purple-300', 
+      text: 'text-purple-800',
+      label: '🟣 Typo/AI',
+    },
+    warn: {
+      bg: 'bg-amber-100',
+      border: 'border-amber-300',
+      text: 'text-amber-800',
+      label: '🟡 Perhatian',
+    },
+    bad: {
+      bg: 'bg-rose-100',
+      border: 'border-rose-300',
+      text: 'text-rose-800',
+      label: '🔴 Serius',
+    },
+    good: {
+      bg: 'bg-emerald-100',
+      border: 'border-emerald-300',
+      text: 'text-emerald-800',
+      label: '🟢 Baik',
+    },
+  };
+  
+  // Create a map of highlighted text to their highlight info
+  const highlightMap = new Map();
+  if (highlights && highlights.length > 0) {
+    highlights.forEach((h, idx) => {
+      // Use first 50 chars as key for matching
+      const key = h.text?.slice(0, 50)?.toLowerCase() || '';
+      if (key && !highlightMap.has(key)) {
+        highlightMap.set(key, { ...h, index: idx });
+      }
+    });
+  }
+  
+  // Split text into paragraphs
+  const paragraphs = articleText?.split(/\n\n+/) || [];
+  
+  // Check if a paragraph contains any highlights
+  const getParagraphHighlights = (para) => {
+    if (!highlights || highlights.length === 0) return [];
+    return highlights.filter(h => {
+      const highlightKey = h.text?.slice(0, 50)?.toLowerCase() || '';
+      return para.toLowerCase().includes(highlightKey);
+    });
+  };
+  
+  // Render paragraph with inline highlights
+  const renderParagraph = (para, paraIndex) => {
+    const matchingHighlights = getParagraphHighlights(para);
+    const hasHighlights = matchingHighlights.length > 0;
+    
+    if (!hasHighlights) {
+      return (
+        <p key={paraIndex} className="mb-4 text-slate-700 leading-relaxed">
+          {para}
+        </p>
+      );
+    }
+    
+    // Split paragraph by highlight matches
+    const parts = [];
+    let lastIndex = 0;
+    const paraLower = para.toLowerCase();
+    
+    // Sort highlights by their position in text
+    const sortedHighlights = [...matchingHighlights].sort((a, b) => {
+      const aPos = paraLower.indexOf(a.text?.slice(0, 50)?.toLowerCase() || '');
+      const bPos = paraLower.indexOf(b.text?.slice(0, 50)?.toLowerCase() || '');
+      return aPos - bPos;
+    });
+    
+    sortedHighlights.forEach((highlight, hIdx) => {
+      const highlightText = highlight.text?.slice(0, 150) || '';
+      const highlightKey = highlight.text?.slice(0, 50)?.toLowerCase() || '';
+      const pos = paraLower.indexOf(highlightKey, lastIndex);
+      
+      if (pos === -1) return;
+      
+      // Add text before highlight
+      if (pos > lastIndex) {
+        parts.push({
+          type: 'normal',
+          text: para.slice(lastIndex, pos),
+        });
+      }
+      
+      // Add highlighted text
+      parts.push({
+        type: 'highlight',
+        text: para.slice(pos, pos + highlightText.length),
+        highlight: highlight,
+        paraIndex,
+      });
+      
+      lastIndex = pos + highlightText.length;
+    });
+    
+    // Add remaining text
+    if (lastIndex < para.length) {
+      parts.push({
+        type: 'normal',
+        text: para.slice(lastIndex),
+      });
+    }
+    
+    return (
+      <div key={paraIndex} className="mb-4">
+        <p className="text-slate-700 leading-relaxed">
+          {parts.map((part, idx) => {
+            if (part.type === 'normal') {
+              return <span key={idx}>{part.text}</span>;
+            }
+            
+            const colors = typeColors[part.highlight.type] || typeColors.warn;
+            
+            return (
+              <mark
+                key={idx}
+                className={`${colors.bg} ${colors.border} border rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={() => onHighlightClick?.(part.highlight)}
+                title={part.highlight.note || `Klik untuk melihat di Sorotan Kalimat`}
+              >
+                {part.text}
+              </mark>
+            );
+          })}
+        </p>
+        
+        {/* Show highlight badges below paragraph */}
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {matchingHighlights.map((h, idx) => {
+            const colors = typeColors[h.type] || typeColors.warn;
+            return (
+              <button
+                key={idx}
+                onClick={() => onHighlightClick?.(h)}
+                className={`text-xs px-2 py-1 rounded-full ${colors.bg} ${colors.text} font-medium hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer`}
+              >
+                <span>{colors.label}</span>
+                {h.category && h.category !== 'llm' && (
+                  <span className="text-xs opacity-75">
+                    {h.category === 'passive' ? 'Pasif' :
+                     h.category === 'complex' ? 'Kompleks' :
+                     h.category === 'formal' ? 'Formal' :
+                     h.category === 'verification' ? 'Verifikasi' :
+                     h.category === 'typo' ? 'Typo' : h.category}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <div 
+      ref={articleRef}
+      className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 className="text-lg font-semibold text-blue-950">Teks Artikel</h3>
+        {highlights && highlights.length > 0 && (
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+            {highlights.length} sorotan
+          </span>
+        )}
+      </div>
+      
+      <div className="text-sm leading-relaxed max-h-96 overflow-y-auto">
+        {paragraphs.length > 0 ? (
+          paragraphs.map((para, idx) => renderParagraph(para, idx))
+        ) : (
+          <p className="text-slate-500 italic">Tidak ada teks artikel.</p>
+        )}
+      </div>
+      
+      <p className="mt-4 text-xs text-slate-400">
+        💡 Klik kalimat yang di-highlight untuk melihat detail di Sorotan Kalimat
+      </p>
+    </div>
+  );
+};
+
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
@@ -1025,6 +1255,38 @@ function App() {
   // Hook Meter state
   const [hookMeter, setHookMeter] = useState(null);
   const [hookMeterLoading, setHookMeterLoading] = useState(false);
+  const hookMeterAbortRef = useRef(null); // For aborting previous requests
+  const hookMeterSessionRef = useRef(0); // For tracking session to prevent stale responses
+
+  // URL fetched text word count
+  const [urlWordCount, setUrlWordCount] = useState(0);
+  
+  // Active highlight state (for two-way navigation)
+  const [activeHighlightIndex, setActiveHighlightIndex] = useState(null);
+  const highlightsRef = useRef(null); // Ref for Sorotan Kalimat section
+  
+  // Scroll to highlights section when activeHighlightIndex changes
+  useEffect(() => {
+    if (activeHighlightIndex !== null && highlightsRef.current) {
+      // Expand highlights section if collapsed
+      setHighlightsExpanded(true);
+      
+      // Scroll to highlights section
+      setTimeout(() => {
+        highlightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [activeHighlightIndex]);
+
+  // Handler for clicking on a highlight in article text
+  const handleHighlightClick = (highlight) => {
+    const index = result?.highlights?.findIndex(h => 
+      h.text?.slice(0, 50) === highlight.text?.slice(0, 50)
+    );
+    if (index !== undefined && index !== -1) {
+      setActiveHighlightIndex(index);
+    }
+  };
 
   const words = useMemo(
     () => text.trim().split(/\s+/).filter(Boolean).length,
@@ -1207,6 +1469,17 @@ function App() {
     setRevisionResult(null);
     setHookMeter(null);
 
+    // Generate new session ID for this analysis
+    const currentSessionId = hookMeterSessionRef.current + 1;
+    hookMeterSessionRef.current = currentSessionId;
+
+    // Abort any previous Hook Meter request to prevent race conditions
+    if (hookMeterAbortRef.current) {
+      hookMeterAbortRef.current.abort();
+    }
+    const abortController = new AbortController();
+    hookMeterAbortRef.current = abortController;
+
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -1226,6 +1499,14 @@ function App() {
       const data = await response.json();
       setResult(data);
       
+      // Store URL word count if fetching from URL
+      if (activeTab === "url" && data.extracted_body) {
+        const count = data.extracted_body.trim().split(/\s+/).filter(Boolean).length;
+        setUrlWordCount(count);
+      } else if (activeTab === "url") {
+        setUrlWordCount(0);
+      }
+      
       // Analyze Hook Meter separately
       setHookMeterLoading(true);
       try {
@@ -1235,14 +1516,21 @@ function App() {
           body: JSON.stringify({
             text: data.extracted_body || text
           }),
+          signal: abortController.signal,
         });
         
         if (hookMeterResponse.ok) {
           const hookMeterData = await hookMeterResponse.json();
-          setHookMeter(hookMeterData);
+          // Only update if this is still the current session (prevents stale responses)
+          if (hookMeterSessionRef.current === currentSessionId) {
+            setHookMeter(hookMeterData);
+          }
         }
       } catch (hookErr) {
-        console.log("Hook Meter analysis skipped:", hookErr.message);
+        // Ignore abort errors (expected when new analysis starts)
+        if (hookErr.name !== 'AbortError') {
+          console.log("Hook Meter analysis skipped:", hookErr.message);
+        }
       } finally {
         setHookMeterLoading(false);
       }
@@ -1368,17 +1656,31 @@ function App() {
 
           {activeTab === "url" && (
             <>
-              <div className="rounded-3xl bg-blue-50 p-4 ring-1 ring-blue-200">
-                <input
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  type="url"
-                  className="w-full rounded-3xl border border-blue-200 bg-white px-5 py-4 text-sm outline-none ring-blue-300 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  placeholder="Masukkan tautan artikel, misal manadopost.id/..."
-                />
-                <p className="mt-3 text-sm text-slate-500">
-                  Tempel URL artikel dari website mana pun untuk dianalisis.
-                </p>
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                <div className="rounded-3xl bg-blue-50 p-4 ring-1 ring-blue-200">
+                  <input
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    type="url"
+                    className="w-full rounded-3xl border border-blue-200 bg-white px-5 py-4 text-sm outline-none ring-blue-300 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Masukkan tautan artikel, misal manadopost.id/..."
+                  />
+                  <p className="mt-3 text-sm text-slate-500">
+                    Tempel URL artikel dari website mana pun untuk dianalisis.
+                  </p>
+                </div>
+
+                {result && urlWordCount > 0 && (
+                  <div className="flex flex-col gap-3 rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-blue-200">
+                    <div className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
+                      Ringkasan
+                    </div>
+                    <div className="text-4xl font-semibold text-blue-950">
+                      {urlWordCount}
+                    </div>
+                    <div className="text-sm text-slate-500">Jumlah kata</div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1480,76 +1782,158 @@ function App() {
                 </div>
               )}
 
-            {/* Highlights Section */}
-            {result.highlights && result.highlights.length > 0 && (
-              <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200">
-                <button
-                  type="button"
-                  onClick={() => setHighlightsExpanded(!highlightsExpanded)}
-                  className="flex w-full items-center justify-between p-6 text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-blue-950">
-                      Sorotan Kalimat
-                    </h3>
-                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                      {result.highlights.length}
-                    </span>
-                    {/* Info tooltip */}
-                    <span className="group relative">
-                      <svg className="h-4 w-4 text-slate-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-64 rounded-lg bg-slate-800 p-3 text-xs text-white shadow-lg group-hover:block z-10">
-                        <p className="font-medium mb-1">Tentang Sorotan Kalimat</p>
-                        <p className="text-slate-300">Sorotan Kalimat menampilkan kalimat-kalimat yang perlu perhatian khusus berdasarkan hasil analisis, seperti kalimat yang terlalu panjang, ambigu, atau berpotensi menimbulkan masalah etika.</p>
-                        <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                      </div>
-                    </span>
-                  </div>
-                  <ChevronIcon 
-                    className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
-                  />
-                </button>
-                
-                {highlightsExpanded && (
-                  <div className="border-t border-slate-100 px-6 pb-6 pt-2">
-                    <div className="grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
-                      {result.highlights.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className={`rounded-3xl border p-4 ${
-                            item.type === "bad"
-                              ? "border-rose-200 bg-rose-50"
-                              : item.type === "warn"
-                                ? "border-amber-200 bg-amber-50"
-                                : "border-emerald-200 bg-emerald-50"
-                          }`}
-                        >
-                          <p className="font-semibold text-blue-950">
-                            {item.type === "bad"
-                              ? "Perlu perbaikan serius"
-                              : item.type === "warn"
-                                ? "Perlu perhatian"
-                                : "Baik"}
-                          </p>
-                          <p className="mt-2 text-slate-700">{item.text}</p>
-                          {item.note && (
-                            <p className="mt-2 text-sm text-slate-500">
-                              {item.note}
-                            </p>
-                          )}
+              {/* Highlighted Article Text - Show article with inline highlights (even if no highlights) */}
+              {result.extracted_body && (
+                <HighlightedArticleText
+                  articleText={result.extracted_body}
+                  highlights={result.highlights || []}
+                  onHighlightClick={handleHighlightClick}
+                  scrollToHighlights={activeHighlightIndex}
+                />
+              )}
+
+              {/* Highlights Section - Only show if there are highlights */}
+              {result.highlights && result.highlights.length > 0 && (
+                <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200" ref={highlightsRef}>
+                  <button
+                    type="button"
+                    onClick={() => setHighlightsExpanded(!highlightsExpanded)}
+                    className="flex w-full items-center justify-between p-6 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-blue-950">
+                        Sorotan Kalimat
+                      </h3>
+                      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                        {result.highlights.length}
+                      </span>
+                      {/* Info tooltip */}
+                      <span className="group relative">
+                        <svg className="h-4 w-4 text-slate-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-64 rounded-lg bg-slate-800 p-3 text-xs text-white shadow-lg group-hover:block z-10">
+                          <p className="font-medium mb-1">Tentang Sorotan Kalimat</p>
+                          <p className="text-slate-300">Sorotan Kalimat menampilkan kalimat-kalimat yang perlu perhatian khusus berdasarkan hasil analisis, seperti kalimat yang terlalu panjang, ambigu, atau berpotensi menimbulkan masalah etika.</p>
+                          <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                         </div>
-                      ))}
+                      </span>
+                    </div>
+                    <ChevronIcon 
+                      className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+                  
+                  {highlightsExpanded && (
+                    <div className="border-t border-slate-100 px-6 pb-6 pt-2">
+                      <div className="grid gap-4 text-sm leading-7 text-slate-700 md:grid-cols-2">
+                        {result.highlights.map((item, idx) => {
+                          // Determine styling based on type
+                          const typeConfig = {
+                            verify: {
+                              border: 'border-orange-200 bg-orange-50',
+                              label: 'Perlu Verifikasi',
+                              badge: 'bg-orange-100 text-orange-700',
+                            },
+                            typo: {
+                              border: 'border-purple-200 bg-purple-50',
+                              label: 'Typo / AI Artifact',
+                              badge: 'bg-purple-100 text-purple-700',
+                            },
+                            warn: {
+                              border: 'border-amber-200 bg-amber-50',
+                              label: 'Perlu Perhatian',
+                              badge: 'bg-amber-100 text-amber-700',
+                            },
+                            bad: {
+                              border: 'border-rose-200 bg-rose-50',
+                              label: 'Perlu Perbaikan Serius',
+                              badge: 'bg-rose-100 text-rose-700',
+                            },
+                            good: {
+                              border: 'border-emerald-200 bg-emerald-50',
+                              label: 'Baik',
+                              badge: 'bg-emerald-100 text-emerald-700',
+                            },
+                          };
+                          
+                          const config = typeConfig[item.type] || typeConfig.warn;
+                          
+                          // Category badge mapping
+                          const categoryLabels = {
+                            verification: 'Verifikasi',
+                            typo: 'Typo',
+                            passive: 'Kalimat Pasif',
+                            complex: 'Kalimat Kompleks',
+                            formal: 'Kata Formal',
+                            puebi: 'PUEBI',
+                            llm: 'LLM Analysis',
+                          };
+                          
+                          return (
+                            <div
+                              key={idx}
+                              className={`rounded-3xl border p-4 cursor-pointer transition-all ${config.border} ${
+                                activeHighlightIndex === idx 
+                                  ? 'ring-2 ring-blue-500 shadow-lg' 
+                                  : 'hover:shadow-md'
+                              }`}
+                              onClick={() => {
+                                // Clear active highlight when clicked (scroll back to article)
+                                setActiveHighlightIndex(null);
+                              }}
+                            >
+                              {activeHighlightIndex === idx && (
+                                <div className="mb-2 text-xs text-blue-600 font-medium flex items-center gap-1">
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                  </svg>
+                                  Klik untuk kembali ke teks artikel
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.badge}`}>
+                                  {config.label}
+                                </span>
+                                {item.category && (
+                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                    {categoryLabels[item.category] || item.category}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-2 text-slate-700">{item.text}</p>
+                              {item.note && (
+                                <p className="mt-2 text-sm text-slate-500 italic">
+                                  {item.note}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Empty highlights state - show message instead of hiding */}
+              {(!result.highlights || result.highlights.length === 0) && (
+                <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200 p-6">
+                  <div className="flex items-center gap-3">
+                    <svg className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-950">Sorotan Kalimat</h3>
+                      <p className="text-sm text-slate-500">Tidak ada kalimat yang perlu sorotan khusus</p>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Hook Meter Section */}
-            {(hookMeter || hookMeterLoading) && (
-              <HookMeterCard hookMeter={hookMeter} loading={hookMeterLoading} />
+            {/* Hook Meter Section - Always show to inform user about availability */}
+            {(hookMeter || hookMeterLoading || mode === 'local') && (
+              <HookMeterCard hookMeter={hookMeter} loading={hookMeterLoading} mode={mode} />
             )}
 
             {/* Auto-Revisi Section */}

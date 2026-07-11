@@ -1227,8 +1227,6 @@ const detectTechnicalIssues = (text) => {
   const trailingRegex = /[ \t]+$/gm;
   while ((match = trailingRegex.exec(text)) !== null) {
     const lineNum = text.slice(0, match.index).split('\n').length;
-    // Get the line content
-    const lineMatch = text.slice(context.startOfLine || 0, text.length).split('\n')[lineNum - 1];
     issues.push({
       type: "trailing",
       position: match.index,
@@ -2261,4 +2259,151 @@ export const analyzeEtika = (text) => {
   };
 };
 
-export { countWords };
+// ============================================================================
+// VERIFICATION & TYPO DETECTION FOR HIGHLIGHTS
+// ============================================================================
+
+/**
+ * Detect statements/quotes that need verification
+ * Patterns: "Toko utama bilang", "Menurut", "Sumber menyebutkan", "Dikatakan"
+ */
+const detectVerificationNeeded = (text) => {
+  const weaknesses = [];
+  
+  // Patterns for statements that need verification
+  const patterns = [
+    // Indonesian patterns
+    { regex: /(?:Toko utama|Sumber|nama orang[^.]*)\s+(?:bilang|menyatakan|mengatakan|menyebutkan|menambahkan|menjelaskan)/gi, label: 'Pernyataan tanpa sumber' },
+    { regex: /menurut\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:\s+dari\s+\w+)?)/g, label: '"Menurut" tanpa atribusi jelas' },
+    { regex: /(?:Dikatakan|Oleh\s+\w+\s+ditambahkan)\s+oleh/gi, label: 'Pernyataan tanpa sumber jelas' },
+    { regex: /(?:Sumber|anonymous|tidak\s+berkenan\s+dinamai)\s+(?:tersebut|itu|mengatakan)/gi, label: 'Sumber anonim' },
+    { regex: /\b(?:bpupn|bps|kemenkop|pemerintah|satgas)\s+(?:mengatakan|menyatakan|menambahkan|menyebutkan)/gi, label: 'Institusi tanpa nama jelas' },
+    // English patterns
+    { regex: /(?:According to|Sources say|Anonymous source|It was said)/gi, label: 'Unverified statement' },
+  ];
+  
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  
+  sentences.forEach((sentence, idx) => {
+    const trimmed = sentence.trim();
+    if (!trimmed || trimmed.length < 20) return;
+    
+    patterns.forEach(({ regex, label }) => {
+      // Reset regex state
+      regex.lastIndex = 0;
+      if (regex.test(trimmed)) {
+        // Check if this sentence already marked as verification needed
+        const alreadyMarked = weaknesses.some(w => w.text.includes(trimmed.slice(0, 100)));
+        if (!alreadyMarked) {
+          weaknesses.push({
+            type: 'verify',
+            text: trimmed.slice(0, 200),
+            index: idx,
+            note: label,
+          });
+        }
+      }
+    });
+  });
+  
+  return weaknesses.slice(0, 5); // Limit to 5 items
+};
+
+/**
+ * Detect typos, AI copy-paste artifacts, and unusual text patterns
+ */
+const detectTypoAIArtifacts = (text) => {
+  const weaknesses = [];
+  
+  // Check for unusual Unicode characters
+  const unusualChars = text.match(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\uFEFF]/g);
+  if (unusualChars && unusualChars.length > 0) {
+    // Find sentences with these characters
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    sentences.forEach((sentence, idx) => {
+      if (/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\uFEFF]/.test(sentence)) {
+        weaknesses.push({
+          type: 'typo',
+          text: sentence.trim().slice(0, 150),
+          index: idx,
+          note: `Terdapat karakter tersembunyi (zero-width space, dll)`,
+        });
+      }
+    });
+  }
+  
+  // Check for excessive double spaces
+  const doubleSpaces = text.match(/  +/g);
+  if (doubleSpaces && doubleSpaces.length > 3) {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    sentences.forEach((sentence, idx) => {
+      const spaces = (sentence.match(/  +/g) || []).length;
+      if (spaces >= 2) {
+        weaknesses.push({
+          type: 'typo',
+          text: sentence.trim().slice(0, 150),
+          index: idx,
+          note: `Spasi ganda berlebihan (${spaces}x)`,
+        });
+      }
+    });
+  }
+  
+  // Check for AI-like repetitive patterns
+  const aiPatterns = [
+    /adalah hal yang sangat penting untuk/i,
+    /dalam konteks ini, dapat dilihat bahwa/i,
+    /hal ini menunjukkan bahwa/i,
+    /sejalan dengan upaya/i,
+    /dalam rangka meningkatkan/i,
+    /sebagai bagian dari proses/i,
+    /untuk mencapai tujuan/i,
+    /dengan memperhatikan faktor/i,
+    /berdasarkan hasil pengamatan/i,
+  ];
+  
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  sentences.forEach((sentence, idx) => {
+    const trimmed = sentence.trim();
+    if (!trimmed || trimmed.length < 30) return;
+    
+    aiPatterns.forEach(pattern => {
+      if (pattern.test(trimmed)) {
+        weaknesses.push({
+          type: 'typo',
+          text: trimmed.slice(0, 150),
+          index: idx,
+          note: 'Pattern bahasa AI/formal berlebihan',
+        });
+      }
+    });
+  });
+  
+  // Check for inconsistent punctuation
+  const sentences2 = text.split(/(?<=[.!?])\s+/);
+  sentences2.forEach((sentence, idx) => {
+    const trimmed = sentence.trim();
+    if (!trimmed || trimmed.length < 20) return;
+    
+    // Multiple periods without space (e.g., "article.article")
+    if (/\.[a-z]/.test(trimmed)) {
+      weaknesses.push({
+        type: 'typo',
+        text: trimmed.slice(0, 150),
+        index: idx,
+        note: 'Tanda baca tidak standar',
+      });
+    }
+  });
+  
+  // Deduplicate by text
+  const seen = new Set();
+  return weaknesses.filter(w => {
+    const key = w.text.slice(0, 50);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 5);
+};
+
+export { countWords, detectVerificationNeeded, detectTypoAIArtifacts };
