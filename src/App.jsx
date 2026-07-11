@@ -9,33 +9,42 @@ import manadoPostWordmark from "./assets/logo.webp";
 // Masthead with logo and title
 
 // Masthead with logo - RESPONSIVE
+// ============================================
+// Masthead with logo - LOGO & WORDMARK DIPERBESAR
+// ============================================
+
+// ============================================
+// Masthead with logo - PADDING DIPERKECIL
+// ============================================
+
 const Masthead = () => (
-<header className="mb-2 flex items-center justify-between gap-2 sm:mb-2 sm:gap-2">
+  <header className="mb-1 flex items-center justify-between gap-1 sm:mb-1 sm:gap-1">
     <div className="flex flex-shrink-0 items-center">
-      {/* Logo - Responsive sizing */}
+      {/* Logo - TETAP BESAR */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-24 w-24 flex-shrink-0 rounded-xl object-contain sm:h-32 sm:w-32"
+        className="h-32 w-32 flex-shrink-0 rounded-xl object-contain sm:h-40 sm:w-40"
         style={{ 
-          maxWidth: '160px', 
-          maxHeight: '160px',
-          marginTop: '-4px',    // Tarik ke atas agar tidak melebar
-          marginBottom: '-4px'  // Tarik ke bawah agar tidak melebar
+          maxWidth: '200px', 
+          maxHeight: '200px',
+          marginTop: '-10px',
+          marginBottom: '-10px'
         }}
       />
-      {/* Wordmark - responsive sizing */}
+      {/* Wordmark - TETAP BESAR */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
-        className="h-10 w-auto object-contain sm:h-14"
+        className="h-15 w-auto object-contain sm:h-23"
         style={{ 
-          maxHeight: '70px',
-          marginLeft: '-12px'
+          maxHeight: '120px',
+          marginLeft: '-6px',
+          marginTop: '-6px',
+          marginBottom: '-6px'
         }}
       />
     </div>
-    <h2 className="text-sm font-semibold text-blue-950 sm:text-base">Article Quality Analyzer</h2>
   </header>
 );
 
@@ -1030,11 +1039,13 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
 // ============================================
 // HIGHLIGHTED ARTICLE TEXT COMPONENT
 // ============================================
-// HIGHLIGHTED ARTICLE TEXT COMPONENT - LABEL STYLE "4 SOROTAN"
+// ============================================
+// HIGHLIGHTED ARTICLE TEXT COMPONENT - DROPDOWN
 // ============================================
 
 const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scrollToHighlights }) => {
   const articleRef = useRef(null);
+  const [expanded, setExpanded] = useState(true); // Default expanded
   
   const paragraphs = articleText?.split(/\n\n+/) || [];
   
@@ -1117,7 +1128,6 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
     
     return (
       <div key={paraIndex} className="mb-4 last:mb-0">
-        {/* Teks paragraf dengan underline pada highlight */}
         <p className="text-slate-600 leading-relaxed">
           {parts.map((part, idx) => {
             if (part.type === 'normal') {
@@ -1137,7 +1147,6 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
           })}
         </p>
         
-        {/* Label dengan style seperti "4 sorotan" - bold + background abu-abu */}
         <div className="mt-1.5">
           <span className="rounded-full bg-slate-200 px-3 py-0.5 text-xs font-medium text-slate-600">
             {labelText}
@@ -1152,36 +1161,54 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
       ref={articleRef}
       className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      {/* Header - DROPDOWN TOGGLE */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
+      >
         <div className="flex items-center gap-2">
           <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <h3 className="text-lg font-semibold text-slate-800">Teks Artikel</h3>
+          {highlights && highlights.length > 0 && (
+            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+              {highlights.length} sorotan
+            </span>
+          )}
         </div>
-        {highlights && highlights.length > 0 && (
-          <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
-            {highlights.length} sorotan
-          </span>
-        )}
-      </div>
+        {/* Chevron Icon */}
+        <svg 
+          className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
       
-      {/* Isi */}
-      <div className="p-6 max-h-96 overflow-y-auto">
-        {paragraphs.length > 0 ? (
-          paragraphs.map((para, idx) => renderParagraph(para, idx))
-        ) : (
-          <p className="text-slate-400 italic">Tidak ada teks artikel.</p>
-        )}
-      </div>
-      
-      {/* Footer */}
-      <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
-        <p className="text-xs text-slate-400">
-          💡 Klik teks bergaris bawah untuk melihat detail di Sorotan Kalimat
-        </p>
-      </div>
+      {/* Content - Expandable */}
+      {expanded && (
+        <>
+          <div className="border-t border-slate-200 px-6 py-4 max-h-96 overflow-y-auto">
+            {paragraphs.length > 0 ? (
+              paragraphs.map((para, idx) => renderParagraph(para, idx))
+            ) : (
+              <p className="text-slate-400 italic">Tidak ada teks artikel.</p>
+            )}
+          </div>
+          
+          {/* Footer - Tanpa ikon, teks ditebalkan */}
+          <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
+            <p className="text-xs font-medium text-slate-500">
+              Klik teks bergaris bawah untuk melihat detail di Sorotan Kalimat
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -1755,10 +1782,15 @@ function App() {
 
               {/* Highlights Section - Only show if there are highlights */}
               {/* Highlights Section - DESAIN BARU (Tanpa "Klik untuk kembali ke teks artikel") */}
+              {/* Sorotan Kalimat - DROPDOWN (Tanpa Ikon) */}
               {result.highlights && result.highlights.length > 0 && (
                 <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden" ref={highlightsRef}>
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                  {/* Header - DROPDOWN TOGGLE */}
+                  <button
+                    type="button"
+                    onClick={() => setHighlightsExpanded(!highlightsExpanded)}
+                    className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
+                  >
                     <div className="flex items-center gap-2">
                       <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1768,90 +1800,116 @@ function App() {
                         {result.highlights.length}
                       </span>
                     </div>
-                  </div>
+                    {/* Chevron Icon */}
+                    <svg 
+                      className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  
+                  {/* Content - Expandable */}
+                  {highlightsExpanded && (
+                    <>
+                      <div className="border-t border-slate-200 p-4 max-h-96 overflow-y-auto space-y-3">
+                        {result.highlights.map((item, idx) => {
+                          // Tentukan warna berdasarkan kategori
+                          let categoryLabel = 'Perhatian';
+                          let categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
+                          let severityLabel = 'Perlu Perbaikan';
+                          let severityColor = 'bg-amber-100 text-amber-700';
+                          
+                          if (item.category === 'passive') {
+                            categoryLabel = 'Kalimat Pasif';
+                            categoryColor = 'bg-yellow-50 border-yellow-200 text-yellow-700';
+                            severityLabel = 'Perlu Perbaikan';
+                            severityColor = 'bg-amber-100 text-amber-700';
+                          } else if (item.category === 'complex') {
+                            categoryLabel = 'Kalimat Kompleks';
+                            categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
+                          } else if (item.category === 'formal') {
+                            categoryLabel = 'Kata Formal';
+                            categoryColor = 'bg-purple-50 border-purple-200 text-purple-700';
+                          } else if (item.category === 'verification') {
+                            categoryLabel = 'Verifikasi';
+                            categoryColor = 'bg-orange-50 border-orange-200 text-orange-700';
+                          } else if (item.category === 'typo') {
+                            categoryLabel = 'Typo';
+                            categoryColor = 'bg-pink-50 border-pink-200 text-pink-700';
+                          }
+                          
+                          // Ambil kata pasif dari note
+                          let passiveWord = '';
+                          if (item.note && item.note.includes('Kalimat pasif:')) {
+                            const match = item.note.match(/Kalimat pasif:\s*"([^"]+)"/);
+                            if (match) passiveWord = match[1];
+                          }
 
-                  {/* Daftar Sorotan */}
-                  <div className="p-4 max-h-96 overflow-y-auto space-y-3">
-                    {result.highlights.map((item, idx) => {
-                      // Tentukan warna berdasarkan kategori
-                      let categoryLabel = 'Perhatian';
-                      let categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
-                      let severityLabel = 'Perlu Perbaikan';
-                      let severityColor = 'bg-amber-100 text-amber-700';
-                      
-                      if (item.category === 'passive') {
-                        categoryLabel = 'Kalimat Pasif';
-                        categoryColor = 'bg-yellow-50 border-yellow-200 text-yellow-700';
-                        severityLabel = 'Perlu Perbaikan';
-                        severityColor = 'bg-amber-100 text-amber-700';
-                      } else if (item.category === 'complex') {
-                        categoryLabel = 'Kalimat Kompleks';
-                        categoryColor = 'bg-blue-50 border-blue-200 text-blue-700';
-                      } else if (item.category === 'formal') {
-                        categoryLabel = 'Kata Formal';
-                        categoryColor = 'bg-purple-50 border-purple-200 text-purple-700';
-                      } else if (item.category === 'verification') {
-                        categoryLabel = 'Verifikasi';
-                        categoryColor = 'bg-orange-50 border-orange-200 text-orange-700';
-                      } else if (item.category === 'typo') {
-                        categoryLabel = 'Typo';
-                        categoryColor = 'bg-pink-50 border-pink-200 text-pink-700';
-                      }
-                      
-                      // Ambil kata pasif dari note
-                      let passiveWord = '';
-                      if (item.note && item.note.includes('Kalimat pasif:')) {
-                        const match = item.note.match(/Kalimat pasif:\s*"([^"]+)"/);
-                        if (match) passiveWord = match[1];
-                      }
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setActiveHighlightIndex(idx)}
+                              className={`rounded-xl border p-4 cursor-pointer transition-all ${
+                                activeHighlightIndex === idx
+                                  ? 'ring-2 ring-blue-500 shadow-md border-blue-300'
+                                  : 'border-slate-200 hover:shadow-md hover:border-slate-300'
+                              } ${categoryColor}`}
+                            >
+                              {/* Header item: Kategori + Severity - TANPA IKON ⚠️ */}
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">
+                                    {categoryLabel}
+                                  </span>
+                                </div>
+                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${severityColor}`}>
+                                  {severityLabel}
+                                </span>
+                              </div>
 
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => setActiveHighlightIndex(idx)}
-                          className={`rounded-xl border p-4 cursor-pointer transition-all ${
-                            activeHighlightIndex === idx
-                              ? 'ring-2 ring-blue-500 shadow-md border-blue-300'
-                              : 'border-slate-200 hover:shadow-md hover:border-slate-300'
-                          } ${categoryColor}`}
-                        >
-                          {/* Header item: Kategori + Severity */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">
-                                ⚠️ {categoryLabel}
-                              </span>
+                              {/* Kalimat yang disorot */}
+                              <p className="text-sm text-slate-700 leading-relaxed mb-2">
+                                "{item.text}"
+                              </p>
+
+                              {/* Detail tambahan - TANPA IKON 📝 */}
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                                {passiveWord && (
+                                  <span className="text-slate-500">
+                                    Kata pasif: <span className="font-mono text-slate-700">"{passiveWord}"</span>
+                                  </span>
+                                )}
+                                {item.note && !item.note.includes('Kalimat pasif:') && (
+                                  <span className="text-slate-500">{item.note}</span>
+                                )}
+                              </div>
+
+                              {/* Indikator aktif */}
+                              {activeHighlightIndex === idx && (
+                                <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                  </svg>
+                                  Klik untuk kembali ke teks artikel
+                                </div>
+                              )}
                             </div>
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${severityColor}`}>
-                              {severityLabel}
-                            </span>
-                          </div>
-
-                          {/* Kalimat yang disorot */}
-                          <p className="text-sm text-slate-700 leading-relaxed mb-2">
-                            "{item.text}"
-                          </p>
-
-                          {/* Detail tambahan - HANYA kata pasif, tanpa "Klik untuk kembali" */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                            {passiveWord && (
-                              <span className="text-slate-500">
-                                📝 Kata pasif: <span className="font-mono text-slate-700">"{passiveWord}"</span>
-                              </span>
-                            )}
-                            {item.note && !item.note.includes('Kalimat pasif:') && (
-                              <span className="text-slate-500">📝 {item.note}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
-                    {/* Footer dikosongkan */}
-                  </div>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Footer - TANPA IKON 💡 */}
+                      <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
+                        <p className="text-xs font-medium text-slate-500">
+                          Klik salah satu sorotan untuk kembali ke teks artikel
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               
