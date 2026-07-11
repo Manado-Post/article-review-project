@@ -1067,18 +1067,6 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
     },
   };
   
-  // Create a map of highlighted text to their highlight info
-  const highlightMap = new Map();
-  if (highlights && highlights.length > 0) {
-    highlights.forEach((h, idx) => {
-      // Use first 50 chars as key for matching
-      const key = h.text?.slice(0, 50)?.toLowerCase() || '';
-      if (key && !highlightMap.has(key)) {
-        highlightMap.set(key, { ...h, index: idx });
-      }
-    });
-  }
-  
   // Split text into paragraphs
   const paragraphs = articleText?.split(/\n\n+/) || [];
   

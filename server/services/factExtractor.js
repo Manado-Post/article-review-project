@@ -1,6 +1,8 @@
 // Fact Extraction Service - Extract claims requiring manual verification
 // Priority: Flag quotes, statistics, and claims for human review
 
+import { DEFAMATION_KEYWORDS, QUALIFIER_WORDS } from "./defamation.js";
+
 // Pattern: "text" - Name, Title
 const QUOTE_PATTERN = /"([^"]{10,200})"\s*[-–—]\s*([^,]+),?\s*([A-Z][a-zA-Z\s]+)?/g;
 
@@ -11,16 +13,10 @@ const STAT_PATTERN = /(?:sekitar|kurang|lebih|sekitar|sekitarnya)?\s*(\d+(?:[.,]
 const UNVERIFIED_ATTRIBUTION = [
   /\bsumber\s+(?:menyatakan|mengatakan|berkata)\b/i,
   /\bkonon\b/i,
-  /\bkatannya\b/i,
+  /\bkatanya\b/i,
   /\bdiperkirakan\b/i,
   /\bkabar\b/i,
   /\brumor\b/i,
-];
-
-// Defamation keywords (need "diduga" or equivalent)
-const DEFAMATION_KEYWORDS = [
-  'koruptor', 'pelaku', 'tersangka', 'terdakwa', 'residivis',
-  'pencuri', 'penipu', 'korupsi', 'pengedar', 'narkoba',
 ];
 
 // Priority levels
@@ -120,8 +116,8 @@ export const detectDefamationRisks = (text) => {
       const matches = sentence.match(pattern);
       
       if (matches) {
-        // Check if preceded by "diduga" or similar
-        const hasQualifier = /\b(diduga|konon|dikatakan|katanya|tersangka)\b/i.test(sentence);
+        // Check if preceded by qualifier
+        const hasQualifier = QUALIFIER_WORDS.some(q => lowerSentence.includes(q));
         
         if (!hasQualifier) {
           risks.push({

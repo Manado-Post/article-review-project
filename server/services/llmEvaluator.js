@@ -3,6 +3,8 @@
 // supaya hemat token & biaya.
 
 import { config } from "../config.js";
+import { logger } from "./logger.js";
+import { metrics } from "./metrics.js";
 
 // OPTIMIZED: ~300 tokens (was ~800 tokens)
 // Prioritas: akurat tapi ringkas
@@ -281,7 +283,7 @@ export const classifyArticle = async (text, retries = 2) => {
         wordCount
       };
     } catch (err) {
-      console.error(`Classify attempt ${attempt + 1} failed:`, err.message);
+      logger.warn({ attempt: attempt + 1, error: err.message }, "Classify attempt failed");
       if (attempt === retries) {
         // Fallback: assume not eligible
         return {
@@ -406,7 +408,7 @@ export const analyzeHookMeter = async (text, retries = 2) => {
       const data = await response.json();
       
       // Debug: log response structure
-      console.log("Hook Meter response structure:", JSON.stringify(data).slice(0, 500));
+      logger.debug({ response: JSON.stringify(data).slice(0, 500) }, "Hook Meter response");
       
       // Check for API error in response
       if (data.error) {
@@ -441,7 +443,7 @@ export const analyzeHookMeter = async (text, retries = 2) => {
         analyzedAt: new Date().toISOString()
       };
     } catch (err) {
-      console.error(`Hook Meter attempt ${attempt + 1} failed:`, err.message);
+      logger.warn({ attempt: attempt + 1, error: err.message }, "Hook Meter attempt failed");
       if (attempt === retries) {
         // Return skipped result instead of throwing
         return {
