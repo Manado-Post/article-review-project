@@ -12,7 +12,7 @@ import {
   detectTypoAIArtifacts,
 } from "../services/heuristics.js";
 import { evaluateWithLLM, reviseText, classifyArticle, analyzeHookMeter } from "../services/llmEvaluator.js";
-import { hashText, getCached, setCached } from "../services/cache.js";
+import { hashText, getCached, setCached, migrateCache, CACHE_SCHEMA_VERSION, getCacheStats, clearAllCache } from "../services/cache.js";
 import { fetchArticleFromUrl } from "../services/urlScraper.js";
 import { extractVerificationFlags } from "../services/factExtractor.js";
 import { config } from "../config.js";
@@ -20,7 +20,8 @@ import { config } from "../config.js";
 const router = Router();
 
 // Cache versioning - increment when structure changes
-const CACHE_VERSION = 'v4';
+// v5: Added wordCount, charCount, extracted_body for UI display
+const CACHE_VERSION = 'v5';
 
 // Weights (8 dimensions)
 const WEIGHTS = {
@@ -207,8 +208,11 @@ router.post("/analyze", async (req, res) => {
     const cacheKey = hashText(articleText + `|mode:${mode}|ver:${CACHE_VERSION}`);
     const cached = getCached(cacheKey);
     if (cached && cached.mode === mode) {
+      // Migrate old cache data to current schema (handles missing wordCount, extracted_body, etc.)
+      const migratedCache = migrateCache(cached);
+      
       return res.json({ 
-        ...cached, 
+        ...migratedCache,
         fromCache: true,
         sourceUrl: sourceUrl,
         sourceDomain: sourceDomain,
@@ -227,6 +231,10 @@ router.post("/analyze", async (req, res) => {
     
     // Extract verification flags for UI
     const verificationFlags = extractVerificationFlags(articleText);
+    
+    // Calculate word count for display
+    const wordCount = articleText.trim().split(/\s+/).filter(Boolean).length;
+    const charCount = articleText.length;
 
     // 2. Decide whether to use LLM
     const { heuristicOnly, estimated } = estimateHeuristicScore(struktur, bahasaHeuristik, seo, audiens, teknis);
@@ -412,7 +420,11 @@ router.post("/analyze", async (req, res) => {
       sourceUrl: sourceUrl,
       sourceDomain: sourceDomain,
       fromCache: false,
-      skippedLLM: skippedLLM
+      skippedLLM: skippedLLM,
+      // Text stats for debugging
+      wordCount: wordCount,
+      charCount: charCount,
+      extracted_body: articleText // Include for UI display
     };
 
     setCached(cacheKey, result);
@@ -424,6 +436,24 @@ router.post("/analyze", async (req, res) => {
       .status(500)
       .json({ error: err.message || "Terjadi kesalahan saat analisis." });
   }
+});
+
+// Cache management endpoints
+router.get("/cache/stats", (req, res) => {
+  const stats = getCacheStats();
+  res.json({
+    ...stats,
+    schemaVersion: CACHE_SCHEMA_VERSION,
+  });
+});
+
+router.post("/cache/clear", (req, res) => {
+  const count = clearAllCache();
+  res.json({ 
+    success: true, 
+    message: `Cleared ${count} cache files`,
+    clearedCount: count 
+  });
 });
 
 // Get supported modes
