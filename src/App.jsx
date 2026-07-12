@@ -683,22 +683,19 @@ const flagStyles = {
   },
 };
 
-const VerificationFlagList = ({ flags, extractedBody }) => {
+const VerificationFlagList = ({ flags, extractedBody, verifiedItems, onToggle, onMarkAll }) => {
   if (!flags || flags.length === 0) return null;
 
-  // Helper to find the sentence containing the flagged text
   const findSentenceWithFlag = (flag) => {
     if (!extractedBody) return null;
     
     const searchText = flag.text || flag.keyword || flag.context || '';
     if (!searchText) return null;
     
-    // Split into sentences (Indonesian punctuation)
     const sentences = extractedBody.split(/[.!?]+/);
     for (const sentence of sentences) {
       const trimmedSentence = sentence.trim();
       if (trimmedSentence.length > 10) {
-        // Check if sentence contains the flagged text or keyword
         if (flag.keyword && trimmedSentence.toLowerCase().includes(flag.keyword.toLowerCase())) {
           return trimmedSentence;
         }
@@ -707,19 +704,24 @@ const VerificationFlagList = ({ flags, extractedBody }) => {
         }
       }
     }
-    // Fallback: return first sentence with any keyword match
     return null;
   };
+
+  const verifiedCount = Object.values(verifiedItems || {}).filter(v => v === true).length;
+  const totalCount = flags.length;
+  const allVerified = verifiedCount === totalCount && totalCount > 0;
 
   return (
     <div className="space-y-3">
       {flags.map((flag, idx) => {
         const style = flagStyles[flag.priority] || flagStyles.medium;
         const flaggedSentence = findSentenceWithFlag(flag);
+        const isChecked = verifiedItems?.[idx] || false;
+        
         return (
           <div
             key={idx}
-            className={`rounded-xl p-3 text-sm ${style.class}`}
+            className={`rounded-xl p-3 text-sm ${style.class} ${isChecked ? 'opacity-60' : ''}`}
           >
             <div className="flex items-start gap-3">
               <Dot className={`${style.dot} mt-2`} />
@@ -728,7 +730,6 @@ const VerificationFlagList = ({ flags, extractedBody }) => {
                   {style.label}
                 </span>
                 
-                {/* Show the actual sentence from article */}
                 {flaggedSentence && (
                   <div className="mt-2 rounded-lg bg-white/80 p-2 border border-slate-200">
                     <p className="text-xs text-slate-500 mb-1">Kalimat dalam artikel:</p>
@@ -756,15 +757,35 @@ const VerificationFlagList = ({ flags, extractedBody }) => {
                   {flag.subject && <span>{flag.subject}</span>}
                 </p>
                 <Recommendation text={flag.recommendation} />
+                
                 <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 text-xs text-slate-500">
-                  <input type="checkbox" className="rounded" />
-                  <span>Sudah diverifikasi</span>
+                  <input 
+                    type="checkbox" 
+                    className="rounded"
+                    checked={isChecked}
+                    onChange={() => onToggle?.(idx)}
+                  />
+                  <span>{isChecked ? '✓ Sudah diverifikasi' : 'Tandai terverifikasi'}</span>
                 </label>
               </div>
             </div>
           </div>
         );
       })}
+      
+      <div className="mt-4 border-t border-amber-200 pt-4">
+        <button 
+          onClick={onMarkAll}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 hover:text-amber-950"
+          disabled={allVerified}
+        >
+          <CheckGlyph className="h-4 w-4" />
+          {allVerified ? 'Semua sudah diverifikasi ✓' : 'Tandai semua terverifikasi'}
+        </button>
+        <span className="ml-3 text-xs text-slate-400">
+          ({verifiedCount}/{totalCount} terverifikasi)
+        </span>
+      </div>
     </div>
   );
 };
@@ -1222,6 +1243,7 @@ function App() {
   
   // Highlights collapse state
   const [highlightsExpanded, setHighlightsExpanded] = useState(false);
+  const [verifiedItems, setVerifiedItems] = useState({});
   
   // Hook Meter state
   const [hookMeter, setHookMeter] = useState(null);
@@ -1310,6 +1332,25 @@ function App() {
         ? prev.filter(c => c !== categoryId)
         : [...prev, categoryId]
     );
+  };
+
+    // Fungsi untuk toggle verifikasi per item
+  const toggleVerification = (index) => {
+    setVerifiedItems(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  // Fungsi untuk menandai semua terverifikasi
+  const markAllVerified = () => {
+    if (!result?.verificationFlags) return;
+    
+    const allVerified = {};
+    result.verificationFlags.forEach((_, idx) => {
+      allVerified[idx] = true;
+    });
+    setVerifiedItems(allVerified);
   };
   
   // Word-level LCS diff
@@ -1787,13 +1828,13 @@ function App() {
                       {result.verificationFlags.length}
                     </span>
                   </div>
-                  <VerificationFlagList flags={result.verificationFlags} extractedBody={result.extracted_body} />
-                  <div className="mt-4 border-t border-amber-200 pt-4">
-                    <button className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 hover:text-amber-950">
-                      <CheckGlyph className="h-4 w-4" />
-                      Tandai semua terverifikasi
-                    </button>
-                  </div>
+                    <VerificationFlagList 
+                      flags={result.verificationFlags} 
+                      extractedBody={result.extracted_body}
+                      verifiedItems={verifiedItems}
+                      onToggle={toggleVerification}
+                      onMarkAll={markAllVerified}
+                    />
                 </div>
               )}
 
