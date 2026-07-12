@@ -1,5 +1,5 @@
 // Cache berbasis file JSON, key = hash artikel.
-// TTL 7 hari, max 5000 entry / 200MB, auto-eviction oldest.
+// TTL default 7 hari, max 5000 entry / 200MB, auto-eviction oldest.
 
 import fs from "fs";
 import path from "path";
@@ -40,13 +40,13 @@ export const migrateCache = (cached) => {
   };
 }
 
-export const getCached = (key) => {
+// Cek apakah cache ada dan belum expired. Hapus file kalau sudah lewat TTL.
+export const getCached = (key, ttlMs = CACHE_TTL_MS) => {
   const filePath = path.join(CACHE_DIR, `${key}.json`);
   if (!fs.existsSync(filePath)) return null;
   try {
     const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    // Check TTL
-    if (data.cachedAt && (Date.now() - new Date(data.cachedAt).getTime()) > CACHE_TTL_MS) {
+    if (data.cachedAt && (Date.now() - new Date(data.cachedAt).getTime()) > ttlMs) {
       fs.unlinkSync(filePath);
       return null;
     }
@@ -56,7 +56,7 @@ export const getCached = (key) => {
   }
 };
 
-export const setCached = (key, value) => {
+export const setCached = (key, value, ttlMs = CACHE_TTL_MS) => {
   const filePath = path.join(CACHE_DIR, `${key}.json`);
   const dataToSave = { ...value, cacheVersion: String(CACHE_SCHEMA_VERSION), cachedAt: new Date().toISOString() };
   try {
@@ -97,6 +97,7 @@ const evictIfNeeded = () => {
   }
 };
 
+// Hapus semua file cache. Buat endpoint admin atau script cleanup.
 export const clearAllCache = () => {
   try {
     if (!fs.existsSync(CACHE_DIR)) return 0;
@@ -108,6 +109,7 @@ export const clearAllCache = () => {
   }
 };
 
+// Hitung jumlah file dan total ukuran cache. Buat monitoring via /api/metrics.
 export const getCacheStats = () => {
   try {
     if (!fs.existsSync(CACHE_DIR)) return { count: 0, size: 0 };

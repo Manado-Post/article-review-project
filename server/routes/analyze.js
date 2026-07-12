@@ -94,9 +94,9 @@ const buildHighlights = (articleText, llmResult, bahasaHeuristik) => {
   const highlights = [];
   const seenTexts = new Set();
   
-  // Helper to add highlight with deduplication
+  // Helper to add highlight with deduplication (ponytail: full text key, no slice collision)
   const addHighlight = (highlight) => {
-    const key = highlight.text?.slice(0, 50) || '';
+    const key = highlight.text?.trim().toLowerCase() || '';
     if (key && !seenTexts.has(key)) {
       seenTexts.add(key);
       highlights.push(highlight);
@@ -226,7 +226,7 @@ router.post("/analyze", async (req, res) => {
     }
     metrics.cache.misses++;
 
-    // 1. Run all heuristics (instant, free)
+    // === FASE 1: Heuristics — semua analisis lokal jalan paralel (instan, gratis) ===
     const struktur = analyzeStruktur(articleText);
     const bahasaHeuristik = analyzeBahasaHeuristic(articleText);
     const seo = analyzeSEO(articleText);
@@ -243,7 +243,7 @@ router.post("/analyze", async (req, res) => {
     const wordCount = articleText.trim().split(/\s+/).filter(Boolean).length;
     const charCount = articleText.length;
 
-    // 2. Decide whether to use LLM
+    // === FASE 2: Skoring — estimasi skor gabungan, tentukan apakah perlu LLM ===
     const { heuristicOnly, estimated } = estimateHeuristicScore(struktur, bahasaHeuristik, seo, audiens, teknis);
     const skipLLM = useLocalMode || estimated >= HIGH_THRESHOLD || estimated < LOW_THRESHOLD;
 
@@ -251,7 +251,7 @@ router.post("/analyze", async (req, res) => {
     let skippedLLM = skipLLM;
 
     if (!skipLLM) {
-      // 3. Call LLM for konten & etika
+      // === FASE 3: LLM — panggil AI untuk analisis konten & etika (jika perlu) ===
       llmResult = await evaluateWithLLM(articleText);
     } else {
       // Use real heuristic analysis for LLM scores (local mode)
@@ -275,7 +275,7 @@ router.post("/analyze", async (req, res) => {
       };
     }
 
-    // 4. Calculate weighted overall score (8 dimensions)
+    // === FASE 4: Agregasi — gabung semua skor jadi nilai akhir + verdict ===
     const overallScore = Math.round(
       llmResult.konten.score * 0.30 +
         struktur.score * 0.20 +
@@ -483,6 +483,9 @@ router.get("/modes", (req, res) => {
   });
 });
 
+// 12-hour TTL for revise cache (text changes often)
+const REVISION_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 // Endpoint for AI-based text revision with category selection
 router.post("/revise", async (req, res) => {
   const { text, categories = [] } = req.body;
@@ -497,8 +500,18 @@ router.post("/revise", async (req, res) => {
     return res.status(400).json({ error: "Pilih minimal satu kategori untuk direvisi." });
   }
 
+  // Cache key: text + sorted categories (ponytail: different categories = different cache)
+  const cacheKey = hashText(text + "|revise|" + [...categories].sort().join("|") + "|v1");
+  const cached = getCached(cacheKey, REVISION_CACHE_TTL_MS);
+  if (cached) {
+    logger.info({ categories }, "Revise cache HIT");
+    return res.json(cached);
+  }
+  logger.info({ categories }, "Revise cache MISS");
+
   try {
     const result = await reviseText(text, categories);
+    setCached(cacheKey, result, REVISION_CACHE_TTL_MS);
     return res.json(result);
   } catch (err) {
     logger.error({ err, path: "/api/revise" }, "Revise error");
@@ -575,15 +588,31 @@ router.post("/analyze-with-hook-meter", async (req, res) => {
   }
 
   try {
-    // Classify article first
-    const classification = await classifyArticle(articleText);
-    
-    // Analyze Hook Meter only if eligible
+    // Cache classify (7-day TTL like main analyze)
+    const classifyKey = hashText(articleText + "|classify|v1");
+    let classification = getCached(classifyKey);
+    if (classification) {
+      logger.info({ chars: articleText.length }, "Classify cache HIT");
+    } else {
+      logger.info({ chars: articleText.length }, "Classify cache MISS");
+      classification = await classifyArticle(articleText);
+      setCached(classifyKey, classification);
+    }
+
+    // Analyze Hook Meter only if eligible (cache already exists for standalone)
     let hookMeter = null;
     if (classification.eligibleForHookMeter) {
-      hookMeter = await analyzeHookMeter(articleText);
+      const hookKey = hashText(articleText + "|hook-meter|v1");
+      hookMeter = getCached(hookKey);
+      if (hookMeter) {
+        logger.info({ chars: articleText.length }, "Hook Meter cache HIT (combined)");
+      } else {
+        logger.info({ chars: articleText.length }, "Hook Meter cache MISS (combined)");
+        hookMeter = await analyzeHookMeter(articleText);
+        setCached(hookKey, hookMeter);
+      }
     }
-    
+
     return res.json({
       classification,
       hookMeter

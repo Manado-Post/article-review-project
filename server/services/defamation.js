@@ -13,11 +13,7 @@ export const QUALIFIER_WORDS = [
   'dalam proses', 'sedang diselidiki', 'belum terbukti',
 ];
 
-/**
- * Check if text has defamation risk (accusation without qualifier)
- * @param {string} text - Article text
- * @returns {boolean}
- */
+// Cek risiko fitnah — tuduhan tanpa qualifier seperti "diduga" / "konon"
 export const hasDefamationRisk = (text) => {
   if (!text) return false;
   const lower = text.toLowerCase();
@@ -28,11 +24,7 @@ export const hasDefamationRisk = (text) => {
   });
 };
 
-/**
- * Count defamation keywords found without qualifier
- * @param {string} text - Article text
- * @returns {number}
- */
+// Hitung jumlah keyword fitnah yang muncul tanpa qualifier
 export const countDefamationKeywords = (text) => {
   if (!text) return 0;
   const lower = text.toLowerCase();

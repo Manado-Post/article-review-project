@@ -1,6 +1,5 @@
-// Panggil LLM HANYA untuk kriteria yang butuh judgment kualitatif
-// (Konten & Sumber, Etika & Legalitas) - bagian lain sudah dinilai heuristik,
-// supaya hemat token & biaya.
+// Panggil LLM HANYA untuk kriteria yang butuh judgment kualitatif.
+// Konten & Sumber, Etika, Revisi, Hook Meter — sisanya sudah dinilai heuristik.
 
 import { config } from "../config.js";
 import { logger } from "./logger.js";
@@ -15,6 +14,7 @@ const SYSTEM_PROMPT = `Anda redaktur senior media Indonesia. Nilai artikel ini:
 2. ETIKA & LEGALITAS (0-100): bias/keberimbangan, fitnah (tuduhan tanpa bukti), privasi.
 
 CATATAN: Maksimal 80 karakter per note. Highlight SINGKAT 1-2 per dimensi.
+WAJIB GUNAKAN BAHASA INDONESIA SAJA. Jangan campur bahasa asing termasuk bahasa China (新闻 dll).
 
 BALAS HANYA JSON valid:
 {"konten":{"score":0,"note":""},"etika":{"score":0,"note":""},"nadaNote":"","highlights":[]}`;
@@ -217,6 +217,8 @@ JANGAN gunakan kode blok markdown.
 BALAS LANGSUNG OBJEK JSON SAJA:
 {"type":"nama_tipe","subtype":"subtipe_jika_ada","wordCount":500,"eligibleForHookMeter":true,"reason":"penjelasan_singkat"}`;
 
+// Tebak tipe artikel (straight_news, feature, human_interest, dll).
+// Pakai quick-check patterns sebelum call LLM buat skip yang jelas-jelas.
 export const classifyArticle = async (text, retries = 2) => {
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   
@@ -355,6 +357,8 @@ BALAS LANGSUNG OBJEK JSON SAJA:
   "suggestions": ["saran singkat 1", "saran singkat 2"]
 }`;
 
+// Analisis kualitas storytelling: opening hook, karakter, alur cerita,
+// detail sensori, dan resonansi emosi. Skip kalau artikel <400 kata.
 export const analyzeHookMeter = async (text, retries = 2) => {
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   
@@ -493,8 +497,16 @@ const CATEGORY_RULES = {
     rule: "PERINGATAN: Menggunakan prompt khusus Struktur & Format."
   },
   seo: {
-    label: "SEO",
-    rule: "PERINGATAN: Menggunakan prompt khusus SEO."
+    label: "SEO & Audiens",
+    rule: "PERINGATAN: Menggunakan prompt khusus SEO & Audiens."
+  },
+  konten: {
+    label: "Konten & Sumber",
+    rule: "PERINGATAN: Menggunakan prompt khusus Konten & Sumber."
+  },
+  mesinBaca: {
+    label: "Mesin-Baca",
+    rule: "PERINGATAN: Menggunakan prompt khusus Mesin-Baca."
   },
   hookMeter: {
     label: "Storytelling",
@@ -505,17 +517,34 @@ const CATEGORY_RULES = {
 // Custom prompts for special categories
 const CUSTOM_PROMPTS = {
   struktur: `PERBAIKAN STRUKTUR & FORMAT:
-1. Perbaiki judul agar 5-9 kata dengan verba aktif di awal
-2. Perbaiki lead agar 40-60 kata, memuat fakta utama + elemen 5W1H (Siapa, Apa, Di mana, Kapan, Mengapa, Bagaimana)
-3. Tambahkan subjudul H3 (### ) jika artikel >400 kata untuk memecah bagian
-4. Restrukturasi agar mengikuti piramida terbalik: fakta penting di awal, detail pendukung di akhir
-5. Gabungkan atau pisahkan paragraf yang terlalu panjang (>150 kata) atau terlalu pendek (<30 kata)`,
-  
-  seo: `PERBAIKAN SEO:
-1. Perbaiki keyword density agar 1-2% - tambahkan kata kunci secara natural di judul, lead, dan subjudul
-2. Hapus atau perbaiki paragraf "mati" (paragraf tanpa fakta, angka, atau kutipan)
-3. Tambahkan fakta/data di setiap paragraf agar density 1 fakta per 150-200 kata
-4. Pastikan lead mengandung kata kunci utama untuk meta description yang optimal`,
+1. JUDUL: Jika judul menggunakan passive voice (awalan 'di-', 'ter-'), ubah ke aktif. Judul harus 5-9 kata dengan verba aktif di awal. Contoh: "Jembatan diresmikan oleh Presiden" -> "Presiden Resmikan Jembatan"
+2. LEAD: Perbaiki agar 40-60 kata, memuat fakta utama + elemen 5W1H lengkap (Siapa, Apa, Di mana, Kapan, Mengapa, Bagaimana)
+3. SUBJUDUL H3: Jika artikel >400 kata, tambahkan subjudul ### untuk memecah bagian
+4. PIRAMIDA TERBALIK: Fakta penting di awal paragraf, detail pendukung di akhir
+5. PARAGRAF: Gabung jika >150 kata, pisah jika <30 kata tanpa fakta
+6. PENUTUP: Tambahkan frasa penutup yang baik jika belum ada (contoh: "Lebih lanjut akan dibahas...", "Diesebutkan bahwa...")
+7. ATRIBUSI: Jika tidak ada sumber resmi/narasumber, tambahkan paragraf atribusi`,
+
+  seo: `PERBAIKAN SEO & AUDIENS:
+1. KEYWORD: Perbaiki keyword density agar 1-2% - tambahkan kata kunci utama secara natural di judul, lead, dan subjudul
+2. DEAD PARAGRAPH: Hapus atau perbaiki paragraf "mati" (paragraf tanpa fakta, angka, atau kutipan) - tambahkan data/fakta
+3. TAUTAN: Tambahkan 2+ tautan internal ke artikel terkait jika belum ada
+4. READABILITY: Sederhanakan kalimat >25 kata. Pecah kalimat kompleks menjadi 2 kalimat pendek
+5. KALIMAT PANJANG: Kalimat ideal 10-20 kata. Jika >25 kata, pecah dengan conjunction
+6. PARAGRAF: Paragraf untuk pembaca online ideal 30-80 kata. Pecah paragraf >80 kata`,
+
+  konten: `PERBAIKAN KONTEN & SUMBER:
+1. NEWS VALUE: Jika topik kurang menarik/dampak, tambahkan sudut berita yang lebih relevan (dampak ke masyarakat, data pendukung, konteks)
+2. KUTIPAN: Tambahkan kutipan langsung dari narasumber bernama jelas (nama + jabatan) jika belum ada
+3. SUMBER RESMI: Tambahkan sumber dari institusi resmi (BNPB, BPS, Kemendagri, dll) untuk data/angka
+4. ANONIM: Jika ada sumber anonim/tanpa nama jelas, ubah ke atribusi bernama atau hapus rujukan anonim
+5. KEBERIMBANGAN: Jika hanya satu perspektif, tambahkan sudut pandang pihak lain (pro kontra,responden alternatif)`,
+
+  mesinBaca: `PERBAIKAN MESIN-BACA (READABILITY UNTUK MESIN CRAWLER):
+1. LEAD QUALITY: Lead harus memuat siapa, apa, di mana, kapan dalam 40-60 kata di paragraph pertama. Tambahkan elemen 5W1H yang kurang
+2. SECTION HEADING: Jika artikel >400 kata tanpa subjudul, tambahkan ### subjudul untuk memecah bagian. Gunakan H3 markdown
+3. ATRIBUSI: Setiap klaim/data harus disertai atribusi. Jika ada tanpa sumber, tambahkan "(Sumber: ...)"
+4. HEADING HIERARCHY: Pastikan heading konsisten. Jangan lompat dari H2 ke H4. Subjudul gunakan ###`,
 
   hookMeter: `PERBAIKAN STORYTELLING (HOOK METER):
 1. OPENING HOOK: Perbaiki kalimat pertama agar lebih menarik - bisa pakai pertanyaan, statistik mengejutkan, atau scene langsung
@@ -563,6 +592,9 @@ TUGAS KHUSUS:
 
 PENTING: BALAS HANYA JSON TANPA MARKDOWN.
 JANGAN gunakan kode blok markdown.
+PERHATIAN: JANGAN buat entry changes jika original === revised.
+HANYA buat entry untuk perubahan yang NYATA (original berbeda dari revised).
+
 BALAS LANGSUNG OBJEK JSON SAJA:
 {
   "revised_text": "teks artikel yang sudah direvisi sesuai kategori...",
@@ -578,43 +610,163 @@ BALAS LANGSUNG OBJEK JSON SAJA:
 }`;
 };
 
+// Find matching closing quote for a JSON string value, respecting escapes (ponytail: char-by-char over regex)
+const findMatchingQuote = (str, start) => {
+  let i = start;
+  while (i < str.length) {
+    if (str[i] === '\\') { i += 2; continue; }
+    if (str[i] === '"') return i;
+    i++;
+  }
+  return -1;
+};
+
+// Extract revised_text from raw JSON string using char-by-char approach
+const extractRevisedText = (str) => {
+  const keyIdx = str.indexOf('"revised_text"');
+  if (keyIdx === -1) return '';
+  const colonIdx = str.indexOf(':', keyIdx);
+  if (colonIdx === -1) return '';
+  const quoteIdx = str.indexOf('"', colonIdx);
+  if (quoteIdx === -1) return '';
+  const endIdx = findMatchingQuote(str, quoteIdx + 1);
+  if (endIdx === -1) return '';
+  return str.slice(quoteIdx + 1, endIdx)
+    .replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+};
+
+// Extract changes array from raw JSON using bracket matching + object-level fallback
+const extractChanges = (str) => {
+  const changesStart = str.indexOf('"changes":[');
+  if (changesStart === -1) return [];
+
+  // Find matching closing bracket
+  let depth = 0, started = false, start = -1, end = -1;
+  for (let i = changesStart + '"changes":['.length - 1; i < str.length; i++) {
+    if (str[i] === '[' && !started) { started = true; start = i + 1; }
+    if (!started) continue;
+    if (str[i] === '[') depth++;
+    else if (str[i] === ']') {
+      if (depth === 0) { end = i; break; }
+      depth--;
+    }
+  }
+
+  if (start === -1 || end === -1 || end <= start) return [];
+  const slice = str.slice(start, end);
+
+  const isValidChange = (c) =>
+    c.original?.trim() && c.revised?.trim() &&
+    c.original.trim() !== c.revised.trim() &&
+    c.original.length > 3 && c.revised.length > 3 &&
+    !c.original.includes('[DUPLIKAT]') && !c.original.includes('[HAPUS]') &&
+    !c.original.includes('[PARAGRAPH]') && !c.original.includes('###');
+
+  try {
+    const changes = JSON.parse('[' + slice + ']');
+    return changes.filter(isValidChange);
+  } catch {
+    // Try object-level extraction (each { ... } as separate object)
+    const objs = (slice.match(/\{[\s\S]*?\}/g) || [])
+      .map(m => { try { return JSON.parse(m); } catch { return null; } })
+      .filter(Boolean);
+    return objs.filter(isValidChange);
+  }
+};
+
+// Generate changes from sentence-level diff (fallback when LLM sends no changes)
+const generateChangesFromDiff = (originalText, revisedText, categories = []) => {
+  const origSents = originalText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 5);
+  const revSents = revisedText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 5);
+  const generated = [];
+
+  // Use first selected category as type label
+  const typeLabel = categories[0] || 'revisi';
+
+  // Check which sentences are different
+  revSents.forEach((rev, i) => {
+    if (i < origSents.length && origSents[i].trim() !== rev.trim()) {
+      generated.push({
+        type: typeLabel,
+        original: origSents[i].trim().slice(0, 200),
+        revised: rev.trim().slice(0, 200),
+        reason: 'Teks diperbaiki'
+      });
+    }
+  });
+
+  return generated.slice(0, 10);
+};
+
 // Parse revision response
-const parseRevisionResponse = (text, originalText) => {
+const parseRevisionResponse = (text, originalText, categories = []) => {
   const clean = text.trim()
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/\s*```$/i, '');
-  
+
   try {
-    return JSON.parse(clean);
+    const parsed = JSON.parse(clean);
+    const meaningfulChanges = (parsed.changes || []).filter(c =>
+      c.original?.trim() && c.revised?.trim() &&
+      c.original.trim() !== c.revised.trim() &&
+      c.original.length > 3 && c.revised.length > 3
+    );
+    return { ...parsed, changes: meaningfulChanges };
   } catch {
-    // Fallback: just return the text as revised_text
+    // Fallback: try char-by-char extraction
+    const revisedText = extractRevisedText(clean);
+    const changes = extractChanges(clean);
+
+    // Validation: must have meaningful revised text
+    const isValid = revisedText.length > 20 && !revisedText.includes('"revised_text"');
+    if (!isValid) {
+      // True fallback: plain text response
+      return {
+        revised_text: clean.slice(0, 5000),
+        changes: [],
+        wordCount: {
+          before: originalText.split(/\s+/).length,
+          after: clean.split(/\s+/).length
+        }
+      };
+    }
+
+    // If changes empty but text changed, auto-generate from sentence diff
+    let finalChanges = changes;
+    if (changes.length === 0 && revisedText.length > 20) {
+      const generated = generateChangesFromDiff(originalText, revisedText, categories);
+      if (generated.length > 0) {
+        finalChanges = generated;
+      }
+    }
+
     return {
-      revised_text: clean.slice(0, 5000),
-      changes: [],
+      revised_text: revisedText,
+      changes: finalChanges,
       wordCount: {
         before: originalText.split(/\s+/).length,
-        after: clean.split(/\s+/).length
+        after: revisedText.split(/\s+/).length
       }
     };
   }
 };
 
 // Main revision function
-export const reviseText = async (text, categories = ['passive', 'puebi'], retries = 2) => {
+export const reviseText = async (text, categories = ['passive', 'complex', 'formal', 'puebi'], retries = 3) => {
   if (!text || !text.trim()) {
     throw new Error("Teks artikel diperlukan");
   }
-  
+
   // Truncate for long articles
   let truncatedText = text;
   if (text.length > 5000) {
     truncatedText = text.slice(0, 5000);
   }
-  
+
   const systemPrompt = generateRevisionPrompt(categories);
   const originalWordCount = text.split(/\s+/).length;
-  
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetch("https://gateway.olagon.site/anthropic/v1/messages", {
@@ -626,7 +778,7 @@ export const reviseText = async (text, categories = ['passive', 'puebi'], retrie
         },
         body: JSON.stringify({
           model: "claude-sonnet-5",
-          max_tokens: 2000,
+          max_tokens: 3000,
           system: systemPrompt,
           messages: [
             { role: "user", content: `Artikel yang akan direvisi:\n"""\n${truncatedText}\n"""` }
@@ -650,8 +802,22 @@ export const reviseText = async (text, categories = ['passive', 'puebi'], retrie
       const textBlock = data.content?.find((c) => c.type === "text");
       if (!textBlock) throw new Error("Respons LLM tidak mengandung teks.");
 
-      const result = parseRevisionResponse(textBlock.text, text);
-      
+      const result = parseRevisionResponse(textBlock.text, text, categories);
+
+      // Check if parse succeeded — retry if still invalid JSON
+      const isValidResult = result.revised_text &&
+        result.revised_text.length > 20 &&
+        !result.revised_text.includes('"revised_text"');
+
+      if (!isValidResult) {
+        if (attempt < retries) {
+          await sleep((attempt + 1) * 2000);
+          continue;
+        }
+        // Last attempt — return what we have
+        return result;
+      }
+
       // Ensure wordCount exists
       if (!result.wordCount) {
         result.wordCount = {
