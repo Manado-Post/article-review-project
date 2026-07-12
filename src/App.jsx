@@ -5,40 +5,28 @@ import manadoPostWordmark from "./assets/logo.webp";
 // ============================================
 // MISSING UI COMPONENTS
 // ============================================
-
-// Masthead with logo and title
-
-// Masthead with logo - RESPONSIVE
-// ============================================
-// Masthead with logo - LOGO & WORDMARK DIPERBESAR
-// ============================================
-
-// ============================================
-// Masthead with logo - PADDING DIPERKECIL
-// ============================================
-
 const Masthead = () => (
   <header className="mb-1 flex items-center justify-between gap-1 sm:mb-1 sm:gap-1">
     <div className="flex flex-shrink-0 items-center">
-      {/* Logo - TETAP BESAR */}
+      {/* Logo - Lebih besar di mobile, tetap besar di desktop */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
-        className="h-32 w-32 flex-shrink-0 rounded-xl object-contain sm:h-40 sm:w-40"
+        className="h-32 w-32 flex-shrink-0 rounded-xl object-contain sm:h-40 sm:w-40 lg:h-48 lg:w-48"
         style={{ 
-          maxWidth: '200px', 
-          maxHeight: '200px',
+          maxWidth: '160px', 
+          maxHeight: '160px',
           marginTop: '-10px',
           marginBottom: '-10px'
         }}
       />
-      {/* Wordmark - TETAP BESAR */}
+      {/* Wordmark - Lebih besar di mobile, tetap besar di desktop */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
-        className="h-15 w-auto object-contain sm:h-23"
+        className="h-14 w-auto object-contain sm:h-20 lg:h-26"
         style={{ 
-          maxHeight: '120px',
+          maxHeight: '80px',
           marginLeft: '-6px',
           marginTop: '-6px',
           marginBottom: '-6px'
@@ -1045,7 +1033,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
 
 const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scrollToHighlights }) => {
   const articleRef = useRef(null);
-  const [expanded, setExpanded] = useState(true); // Default expanded
+  const [expanded, setExpanded] = useState(false); // Default expanded
   
   const paragraphs = articleText?.split(/\n\n+/) || [];
   
@@ -1138,7 +1126,10 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
               <span
                 key={idx}
                 className="text-blue-600 underline decoration-blue-400 decoration-2 underline-offset-2 cursor-pointer hover:text-blue-800 hover:decoration-blue-600 transition-colors"
-                onClick={() => onHighlightClick?.(part.highlight)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onHighlightClick?.(part.highlight);
+                }}
                 title={part.highlight.note || 'Klik untuk melihat di Sorotan Kalimat'}
               >
                 {part.text}
@@ -1248,23 +1239,59 @@ function App() {
   // Scroll to highlights section when activeHighlightIndex changes
   useEffect(() => {
     if (activeHighlightIndex !== null && highlightsRef.current) {
-      // Expand highlights section if collapsed
       setHighlightsExpanded(true);
       
-      // Scroll to highlights section
       setTimeout(() => {
-        highlightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        highlightsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
       }, 100);
+      
+      setTimeout(() => {
+        const activeCard = highlightsRef.current?.querySelector('.ring-2');
+        if (activeCard) {
+          activeCard.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 600);
     }
   }, [activeHighlightIndex]);
 
   // Handler for clicking on a highlight in article text
   const handleHighlightClick = (highlight) => {
-    const index = result?.highlights?.findIndex(h => 
+    if (!result?.highlights) return;
+    
+    const index = result.highlights.findIndex(h => 
       h.text?.slice(0, 50) === highlight.text?.slice(0, 50)
     );
+    
     if (index !== undefined && index !== -1) {
       setActiveHighlightIndex(index);
+      setHighlightsExpanded(true);
+      
+      setTimeout(() => {
+        if (highlightsRef.current) {
+          highlightsRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          
+          setTimeout(() => {
+            const activeCard = highlightsRef.current?.querySelector('.ring-2');
+            if (activeCard) {
+              activeCard.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+              });
+            }
+          }, 500);
+        }
+      }, 300);
     }
   };
 
@@ -1783,6 +1810,7 @@ function App() {
               {/* Highlights Section - Only show if there are highlights */}
               {/* Highlights Section - DESAIN BARU (Tanpa "Klik untuk kembali ke teks artikel") */}
               {/* Sorotan Kalimat - DROPDOWN (Tanpa Ikon) */}
+              {/* Sorotan Kalimat - DROPDOWN (Tanpa "Klik untuk kembali") */}
               {result.highlights && result.highlights.length > 0 && (
                 <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden" ref={highlightsRef}>
                   {/* Header - DROPDOWN TOGGLE */}
@@ -1859,7 +1887,7 @@ function App() {
                                   : 'border-slate-200 hover:shadow-md hover:border-slate-300'
                               } ${categoryColor}`}
                             >
-                              {/* Header item: Kategori + Severity - TANPA IKON ⚠️ */}
+                              {/* Header item: Kategori + Severity */}
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-semibold">
@@ -1876,7 +1904,7 @@ function App() {
                                 "{item.text}"
                               </p>
 
-                              {/* Detail tambahan - TANPA IKON 📝 */}
+                              {/* Detail tambahan - HANYA kata pasif, tanpa "Klik untuk kembali" */}
                               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                                 {passiveWord && (
                                   <span className="text-slate-500">
@@ -1887,26 +1915,14 @@ function App() {
                                   <span className="text-slate-500">{item.note}</span>
                                 )}
                               </div>
-
-                              {/* Indikator aktif */}
-                              {activeHighlightIndex === idx && (
-                                <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                  </svg>
-                                  Klik untuk kembali ke teks artikel
-                                </div>
-                              )}
                             </div>
                           );
                         })}
                       </div>
                       
-                      {/* Footer - TANPA IKON 💡 */}
+                      {/* Footer - DIKOSONGKAN (tanpa teks apapun) */}
                       <div className="border-t border-slate-200 px-6 py-3 bg-slate-50">
-                        <p className="text-xs font-medium text-slate-500">
-                          Klik salah satu sorotan untuk kembali ke teks artikel
-                        </p>
+                        {/* Footer kosong */}
                       </div>
                     </>
                   )}
