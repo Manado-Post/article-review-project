@@ -1,4 +1,4 @@
-// Structured logger — replace all console.log/error with this
+// Logger terstruktur — ganti semua console.log/error pake ini
 import pino from "pino";
 
 const isDev = process.env.NODE_ENV !== "production";

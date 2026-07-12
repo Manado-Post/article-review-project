@@ -1,5 +1,5 @@
-// Enhanced heuristics berdasarkan Standar Penulisan Jawa Pos
-// Fokus: struktur mesin-readable + weakness detection + AI-SEO optimization
+// Enhanced heuristics berdasarkan Standar Penulisan Jawa Pos.
+// Fokus: struktur mesin-readable + weakness detection + AI-SEO optimization.
 
 import { DEFAMATION_KEYWORDS, QUALIFIER_WORDS } from "./defamation.js";
 
@@ -8,14 +8,10 @@ const countWords = (text) =>
   text.trim() ? text.trim().split(/\s+/).length : 0;
 
 // ============================================================================
-// AI-SEO HEURISTICS (Based on Jawa Pos "Piramida Terbalik Berlapis")
+// AI-SEO HEURISTICS (Piramida Terbalik Berlapis — standar Jawa Pos)
 // ============================================================================
 
-// ============================================================================
-// AI-SEO HEURISTICS (Based on Jawa Pos "Piramida Terbalik Berlapis")
-// ============================================================================
-
-// Check 5W1H in lead
+// Cek apakah lead artikel mengandung elemen 5W1H (Siapa, Apa, Kapan, dll)
 const has5W1H = (text) => {
   const patterns = [
     /\b(apa|siapa|kapan|di mana|mengapa|bagaimana)\b/i,
@@ -68,7 +64,7 @@ const countDeadParagraphs = (text) => {
 };
 
 // ============================================================================
-// AI-SEO SCORING (Piramida Terbalik Berlapis)
+// SKORING AI-SEO (Piramida Terbalik Berlapis)
 // ============================================================================
 
 /**
@@ -310,16 +306,10 @@ export const analyzeMachineReadability = (text) => {
 };
 
 // ============================================================================
-// EXISTING HEURISTICS (Enhanced)
+// STRUKTUR & FORMAT (Piramida Terbalik Berlapis — standar Jawa Pos)
 // ============================================================================
 
-// ============================================================================
-// STRUKTUR & FORMAT ANALYSIS (Based on Jawa Pos - Piramida Terbalik Berlapis)
-// ============================================================================
-
-/**
- * Extract headline from article text (first line or H1)
- */
+// Ambil judul artikel dari baris pertama atau H1 markdown.
 const extractHeadline = (text) => {
   const lines = text.split(/\n/).filter(l => l.trim());
   if (!lines.length) return { headline: '', hasH1: false };
@@ -377,9 +367,7 @@ const check5W1H = (leadText) => {
   };
 };
 
-/**
- * Check pyramid structure - important info should come first
- */
+// Cek struktur piramida terbalik - info penting harus ada di paragraph pertama.
 const checkPyramidStructure = (text) => {
   const paragraphs = clean(text).split(/\n+/).filter(Boolean);
   if (paragraphs.length < 3) {
@@ -424,9 +412,7 @@ const checkPyramidStructure = (text) => {
   };
 };
 
-/**
- * Check closing paragraph
- */
+// Cek kualitas paragraf penutup - harus ada frasa penutup dan tidak boleh ada fakta baru.
 const checkClosing = (text) => {
   const paragraphs = clean(text).split(/\n+/).filter(Boolean);
   if (paragraphs.length < 2) {
@@ -469,9 +455,7 @@ const checkClosing = (text) => {
   };
 };
 
-/**
- * Check for nut graf (nut graf for articles >600 words)
- */
+// Cek nut graf — paragraf kunci yang jelasin "kenaga artikel ini penting" (wajib buat artikel >600 kata)
 const checkNutGraf = (text) => {
   const wordCount = countWords(text);
   const paragraphs = clean(text).split(/\n+/).filter(Boolean);
@@ -500,6 +484,7 @@ const checkNutGraf = (text) => {
   };
 };
 
+// Analisis struktur & format artikel: piramida terbalik, heading, lead, nut graf
 export const analyzeStruktur = (text) => {
   const paragraphs = clean(text).split(/\n+/).filter(Boolean);
   const firstParagraph = paragraphs[0] || "";
@@ -641,12 +626,10 @@ export const analyzeStruktur = (text) => {
 };
 
 // ============================================================================
-// BAHASA & GAYA ANALYSIS (Enhanced with PUEBI, Localization, Tone)
+// BAHASA & GAYA (PUEBI, tone, lokalisasi, rasio aktif/pasif)
 // ============================================================================
 
-/**
- * PUEBI (Pedoman Umum Ejaan Bahasa Indonesia) Check
- */
+// Cek kepatuhan PUEBI — kapitalisasi, angka, afiksasi, tanda baca
 const checkPUEBI = (text) => {
   const issues = [];
   let score = 100;
@@ -700,9 +683,7 @@ const checkPUEBI = (text) => {
   };
 };
 
-/**
- * Tone/Neutrality Analysis
- */
+// Analisis tone & netralitas bahasa — deteksi kata emosional, evaluatif, sentiment
 const analyzeTone = (text) => {
   const textLower = text.toLowerCase();
   const words = text.split(/\s+/);
@@ -787,9 +768,7 @@ const analyzeTone = (text) => {
   };
 };
 
-/**
- * Localization Check (Foreign Words)
- */
+// Cek lokalisasi — seberapa banyak kata asing yang sebenarnya ada padanan Indonesianya
 const checkLocalization = (text) => {
   const foreignWords = [
     // Common English words that should be translated
@@ -846,9 +825,7 @@ const checkLocalization = (text) => {
   };
 };
 
-/**
- * Active Voice Ratio Check
- */
+// Hitung rasio kalimat aktif vs pasif — makin tinggi makin baik buat readability
 const checkActiveVoice = (text) => {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
   
@@ -878,6 +855,7 @@ const checkActiveVoice = (text) => {
   };
 };
 
+// Deteksi kalimat pasif (awalan di-, ter-) dan kalimat yang terlalu panjang (>25 kata).
 const detectPassiveSentences = (text) => {
   const weaknesses = [];
   const sentences = text.split(/(?<=[.!?])\s+/);
@@ -915,6 +893,7 @@ const detectPassiveSentences = (text) => {
   return weaknesses;
 };
 
+// Deteksi kata formal yang diulang >=5 kali - sarankan variasi kata.
 const detectFormalOveruse = (text) => {
   const weaknesses = [];
   const formalWords =
@@ -942,6 +921,7 @@ const detectFormalOveruse = (text) => {
   return weaknesses;
 };
 
+// Analisis bahasa & gaya: keterbacaan, passive voice, PUEBI, tone, lokalisasi, active voice.
 export const analyzeBahasaHeuristic = (text) => {
   const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
   const words = countWords(text);
@@ -1035,8 +1015,17 @@ export const analyzeBahasaHeuristic = (text) => {
     ...detectFormalOveruse(text)
   ];
 
+  // Deduplicate by full text (ponytail: Set over naive loop, fixes duplicate passive/complex entries)
+  const seen = new Set();
+  const uniqueWeaknesses = detectedWeaknesses.filter(w => {
+    const key = (w.text || '').trim().toLowerCase();
+    if (key && seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   // Sanitize weaknesses - ensure all fields are strings
-  const sanitizedWeaknesses = detectedWeaknesses.slice(0, 10).map(w => ({
+  const sanitizedWeaknesses = uniqueWeaknesses.slice(0, 10).map(w => ({
     type: String(w.type || ''),
     text: String(w.text || '').slice(0, 200),
     note: String(w.note || ''),
@@ -1065,14 +1054,11 @@ export const analyzeBahasaHeuristic = (text) => {
   };
 };
 
-// --- TEKNIS ENHANCED ---
 // ============================================================================
-// PEMERIKSAAN TEKNIS (Enhanced with Consistency & Plagiarism Stub)
+// PEMERIKSAAN TEKNIS (spasi, heading, plagiarisme, gambar)
 // ============================================================================
 
-/**
- * Check heading hierarchy consistency
- */
+// Cek hierarki heading markdown - H1 harus ada, level tidak boleh lompat.
 const checkHeadingHierarchy = (text) => {
   const lines = text.split(/\n/);
   const issues = [];
@@ -1111,9 +1097,7 @@ const checkHeadingHierarchy = (text) => {
   };
 };
 
-/**
- * Plagiarism check stub (would need external API)
- */
+// Deteksi indikasi plagiarisme dari pola copy-paste (stub - untuk akurasi butuh API eksternal).
 const checkPlagiarism = (text) => {
   // This is a stub - real implementation would use Turnitin/Copyscape API
   // We check for common copy-paste indicators as proxy
@@ -1154,9 +1138,7 @@ const checkPlagiarism = (text) => {
   };
 };
 
-/**
- * Check image caption presence (simulated - checks for markdown/image patterns)
- */
+// Cek keberadaan gambar dan keterangan (caption) di artikel.
 const checkImagePresence = (text) => {
   const imagePatterns = [
     /!\[.*?\]\(.*?\)/g,  // Markdown image
@@ -1182,6 +1164,7 @@ const checkImagePresence = (text) => {
   };
 };
 
+// Deteksi masalah teknis: spasi ganda, trailing space, line break, tanda kutip non-standar.
 const detectTechnicalIssues = (text) => {
   const issues = [];
   
@@ -1266,6 +1249,7 @@ const detectTechnicalIssues = (text) => {
   return issues;
 };
 
+// Analisis teknis — spasi, heading hierarchy, plagiarisme, gambar
 export const analyzeTeknis = (text) => {
   const notes = [];
   const strengths = [];
@@ -1378,12 +1362,10 @@ export const analyzeTeknis = (text) => {
 };
 
 // ============================================================================
-// SEO & AUDIENS ANALYSIS (Based on Jawa Pos + Ringkasan Eksekutif)
+// SEO & AUDIENS (keyword, fact density, tautan, keterbacaan)
 // ============================================================================
 
-/**
- * Extract main keyword from article title/first paragraph
- */
+// Ekstrak keyword utama dari judul/paragraf pertama artikel
 const extractMainKeyword = (text) => {
   const lines = text.split(/\n/);
   const firstLine = lines[0] || '';
@@ -1407,9 +1389,7 @@ const extractMainKeyword = (text) => {
   return title.slice(0, 30);
 };
 
-/**
- * Check keyword density (target: 1-2%)
- */
+// Cek keyword density — target ideal 1-2%
 const checkKeywordDensity = (text, keyword) => {
   if (!keyword || keyword.length < 3) return { density: 0, status: 'unknown' };
   
@@ -1448,9 +1428,7 @@ const checkKeywordDensity = (text, keyword) => {
   return { density: Math.round(density * 10) / 10, count, status, note };
 };
 
-/**
- * Check internal links
- */
+// Cek tautan internal ke artikel/berita lain di domain yang sama
 const checkInternalLinks = (text) => {
   // Patterns for internal links
   const internalPatterns = [
@@ -1481,9 +1459,7 @@ const checkInternalLinks = (text) => {
   };
 };
 
-/**
- * Check external links
- */
+// Cek tautan eksternal ke domain lain
 const checkExternalLinks = (text) => {
   const externalPattern = /https?:\/\/(?!.*\.(?:com|co\.id|net|org|id)\b)[^\s]+/gi;
   const matches = text.match(externalPattern) || [];
@@ -1501,9 +1477,7 @@ const checkExternalLinks = (text) => {
   };
 };
 
-/**
- * Check click-worthy indicators in headline
- */
+// Cek apakah judul punya daya tarik klik — angka, pertanyaan, kata urgensi
 const checkClickWorthy = (text) => {
   const headline = text.split(/\n/)[0] || '';
   const indicators = [];
@@ -1549,9 +1523,7 @@ const checkClickWorthy = (text) => {
   };
 };
 
-/**
- * Check meta description quality (simulated - based on first paragraph analysis)
- */
+// Cek kualitas meta description — simulasi dari lead paragraf pertama
 const checkMetaQuality = (text) => {
   const firstPara = text.split(/\n+/)[0] || '';
   const words = firstPara.split(/\s+/);
@@ -1587,6 +1559,7 @@ const checkMetaQuality = (text) => {
   };
 };
 
+// Analisis SEO — word count, fact density, keyword, internal/external links, click-worthiness
 export const analyzeSEO = (text, targetKeyword = "") => {
   const wordCount = countWords(text);
   const factCount = countFacts(text);
@@ -1757,13 +1730,10 @@ export const analyzeSEO = (text, targetKeyword = "") => {
 };
 
 // ============================================================================
-// AUDIENS ANALYSIS (Readability, Appeal, Readability for Readers)
+// AUDIENS (keterbacaan, kompleksitas kalimat, appeal)
 // ============================================================================
 
-/**
- * Analyze Audiens - Readability and audience appeal
- * Focus on how well the article appeals to and is readable by target audience
- */
+// Analisis audiens — readability, kompleksitas kalimat, daya tarik judul, panjang paragraf
 export const analyzeAudiens = (text) => {
   const wordCount = countWords(text);
   const sentences = text.split(/[.!?]+/).filter(s => s.trim());
@@ -1866,13 +1836,10 @@ export const analyzeAudiens = (text) => {
 };
 
 // ============================================================================
-// KONTEN & SUMBER ANALYSIS (News Value, Originalitas, Sumber Kredibilitas)
+// KONTEN & SUMBER (news value, originalitas, kredibilitas)
 // ============================================================================
 
-/**
- * Analyze Konten & Sumber using heuristics
- * Based on news value, source credibility, and originality
- */
+// Analisis konten & sumber — news value, originalitas, kredibilitas narasumber
 export const analyzeKonten = (text) => {
   const notes = [];
   const strengths = [];
@@ -2058,13 +2025,10 @@ export const analyzeKonten = (text) => {
 };
 
 // ============================================================================
-// ETIKA & LEGALITAS ANALYSIS (Based on Ringkasan Eksekutif)
+// ETIKA & LEGALITAS (fitnah, bias, privasi, consent)
 // ============================================================================
 
-/**
- * Analyze Etika & Legalitas using heuristics
- * Based on: Bias/Fairness, Libel/Fitnah, Privasi, Consent
- */
+// Analisis etika & legalitas: fitnah, bias, privasi, consent.
 export const analyzeEtika = (text) => {
   const notes = [];
   const strengths = [];
@@ -2249,7 +2213,7 @@ export const analyzeEtika = (text) => {
 };
 
 // ============================================================================
-// VERIFICATION & TYPO DETECTION FOR HIGHLIGHTS
+// VERIFIKASI & TYPOS — deteksi kalimat perlu cek manual + typo AI
 // ============================================================================
 
 /**

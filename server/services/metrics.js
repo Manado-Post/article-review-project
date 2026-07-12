@@ -1,11 +1,11 @@
-// Runtime metrics for observability
+// Metrik runtime buat observasi & monitoring server
 export const metrics = {
-  requests: { total: 0, byEndpoint: {} },
-  cache: { hits: 0, misses: 0 },
-  llm: { calls: 0, errors: 0, totalLatencyMs: 0 },
-  scraper: { successes: 0, failures: 0, methods: {} },
-  errors: { total: 0, byType: {} },
-  startTime: Date.now(),
+  requests: { total: 0, byEndpoint: {} },  // total request per endpoint
+  cache: { hits: 0, misses: 0 },           // hit/miss ratio cache
+  llm: { calls: 0, errors: 0, totalLatencyMs: 0 },  // statistik panggilan LLM
+  scraper: { successes: 0, failures: 0, methods: {} },  // keberhasilan scraping URL
+  errors: { total: 0, byType: {} },        // error tracking by type
+  startTime: Date.now(),                    // waktu mulai server
 };
 
 export const getMetrics = () => {

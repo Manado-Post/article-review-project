@@ -77,6 +77,16 @@ npm run client
 | **Hybrid** | Rendah | ~85% | Production (recommended) |
 | **LLM Penuh** | Tinggi | ~95% | Keputusan penting |
 
+### Efisiensi Token — Mode Hybrid
+
+Mode hybrid menghemat token LLM dengan hanya memanggil API untuk kasus *borderline* (skor estimasi 50-85). Artikel dengan skor bagus (>85) atau jelek (<50) langsung pakai skor heuristik.
+
+![Token Usage Before](img/Before.png)
+*Sebelum: semua artikel panggil LLM — token boros*
+
+![Token Usage After](img/After.png)
+*Sesudah (hybrid): hanya artikel borderline yang panggil LLM — hemat ~60-80% token*
+
 ---
 
 ## Arsitektur Sistem
