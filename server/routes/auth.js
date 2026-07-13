@@ -18,6 +18,18 @@ const authLimiter = rateLimit({
 
 router.use(authLimiter);
 
+// PIN Gate — verify before login
+router.post("/verify-pin", (req, res) => {
+  const { pin } = req.body;
+  if (!pin) return res.status(400).json({ error: "PIN diperlukan." });
+  const expectedHash = process.env.VITE_PIN_HASH;
+  if (!expectedHash) return res.json({ verified: true }); // bypass if not configured
+  bcrypt.compare(pin, expectedHash, (err, result) => {
+    if (result) return res.json({ verified: true });
+    return res.status(401).json({ error: "PIN salah." });
+  });
+});
+
 // Username format validation
 const isValidUsername = (u) => /^[a-zA-Z0-9._-]{3,30}$/.test(u);
 
