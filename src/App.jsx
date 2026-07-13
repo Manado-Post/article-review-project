@@ -6,7 +6,7 @@ import manadoPostWordmark from "./assets/logo.webp";
 // MISSING UI COMPONENTS
 // ============================================
 const Masthead = ({ user, onLogout }) => (
-  <header className="mb-1 flex items-center justify-between gap-1 sm:mb-1 sm:gap-1">
+  <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div className="flex flex-shrink-0 items-center">
       <img
         src={mdopostLogo}
@@ -21,11 +21,20 @@ const Masthead = ({ user, onLogout }) => (
         style={{ maxHeight: '80px', marginLeft: '-6px', marginTop: '-6px', marginBottom: '-6px' }}
       />
     </div>
+    
     {user && (
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-500">{user.username}</span>
-        <button onClick={onLogout} className="rounded-xl bg-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-300">
-          Logout
+      <div className="flex min-w-0 items-center gap-3 pt-1">
+        <span className="max-w-[160px] truncate text-sm font-medium text-slate-700 bg-white/80 px-3 py-1.5 rounded-lg shadow-sm border border-slate-200/50">
+          {user.username}
+        </span>
+        <button 
+          onClick={onLogout} 
+          className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-all duration-200 border border-red-200/50 hover:border-red-300/50"
+          title="Logout"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
         </button>
       </div>
     )}
@@ -54,7 +63,7 @@ const CheckGlyph = ({ className }) => (
 // Chevron icon for expandable
 const ChevronIcon = ({ expanded }) => (
   <svg 
-    className={`h-5 w-5 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+    className={`h-5 w-5 flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} 
     viewBox="0 0 24 24" 
     fill="none" 
     stroke="currentColor" 
@@ -90,16 +99,16 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-4 py-2 text-left transition-all ${
+      className={`flex w-full min-w-0 items-center gap-3 rounded-xl px-4 py-2 text-left transition-all ${
         isActive 
           ? 'bg-blue-900 shadow-md' 
           : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
       }`}
     >
-      <span className={`text-xl font-bold ${scoreColor}`}> {/* Warna tetap sesuai skor */}
+      <span className={`flex-shrink-0 text-xl font-bold ${scoreColor}`}> {/* Warna tetap sesuai skor */}
         {score}
       </span>
-      <span className={`flex-1 text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
+      <span className={`min-w-0 flex-1 break-words text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
         {category}
       </span>
       <ChevronIcon expanded={isActive} />
@@ -114,8 +123,8 @@ const CategoryOverviewStrip = ({ details, activeCategory, onSelect, layout = "gr
       <div
         className={
           layout === "sidebar"
-            ? "grid grid-cols-2 gap-2 lg:grid-cols-1"
-            : "grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            ? "grid grid-cols-1 gap-2"
+            : "grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
         }
       >
         {details?.map((category) => (
@@ -271,7 +280,7 @@ const WeaknessBox = ({ type, label, content, recommendation, style }) => (
   <div className={`rounded-xl p-3 mb-2 ${style?.class || 'border border-slate-200 bg-slate-50'}`}>
     <div className="flex items-start gap-2">
       <Dot className={style?.dot || 'bg-slate-400'} />
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-slate-700">{label}</p>
         {content && <p className="text-xs text-slate-600 mt-1">{content}</p>}
         {recommendation && (
@@ -405,7 +414,7 @@ const RisksSection = ({ risks }) => {
             <div key={i} className={`rounded-xl p-3 ${style.class}`}>
               <div className="flex items-start gap-2">
                 <Dot className={style.dot} />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
                     {style.label}
                   </p>
@@ -537,7 +546,7 @@ const CategoryDetail = ({ details, isExpanded }) => {
   const allNotes = getAllNotes();
   
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       {/* Semua catatan dalam satu box biru */}
       {allNotes.length > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100">
@@ -585,18 +594,18 @@ const SpacingIssueBox = ({ issue }) => {
   const spaceDisplay = "·".repeat(issue.spaceCount);
 
   return (
-    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+    <div className="mt-2 min-w-0 rounded-xl border border-slate-200 bg-white p-3">
       <p className="text-xs font-semibold text-slate-600">{issue.note}</p>
 
       <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-3 font-mono text-sm">
         <div className="flex flex-wrap items-center justify-center gap-1 text-xs">
-          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">
+          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 break-words">
             {issue.before}
           </span>
           <span className="rounded border border-red-300 bg-red-100 px-2 py-0.5 font-bold text-red-700">
             {spaceDisplay}
           </span>
-          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">
+          <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 break-words">
             {issue.after}
           </span>
         </div>
@@ -634,15 +643,15 @@ const TrailingIssueBox = ({ issue }) => {
   };
   
   return (
-    <div className="border-2 border-slate-300 bg-slate-50 rounded-xl p-3 mt-2">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="border-2 border-slate-300 bg-slate-50 rounded-xl p-3 mt-2 min-w-0">
+      <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className="text-slate-600 font-bold">{toString(issue.note)}</span>
         <span className="text-xs text-slate-500">Baris {toString(issue.line)}</span>
       </div>
       
       <div className="bg-white border border-slate-200 rounded-lg p-2 font-mono text-sm">
-        <div className="flex items-end">
-          <span className="text-slate-400 break-all">{toString(issue.lineContent)}</span>
+        <div className="flex items-end min-w-0">
+          <span className="min-w-0 break-all text-slate-400">{toString(issue.lineContent)}</span>
           <span className="text-red-400 flex-shrink-0">· · ·</span>
         </div>
         <div className="text-center text-slate-400 text-xs mt-1">↑ spasi di akhir baris</div>
@@ -729,13 +738,13 @@ const VerificationFlagList = ({ flags, extractedBody, verifiedItems, onToggle, o
                 {flaggedSentence && (
                   <div className="mt-2 rounded-lg bg-white/80 p-2 border border-slate-200">
                     <p className="text-xs text-slate-500 mb-1">Kalimat dalam artikel:</p>
-                    <p className="text-slate-700 text-sm leading-relaxed">
+                    <p className="text-slate-700 text-sm leading-relaxed break-words">
                       {flaggedSentence}.
                     </p>
                   </div>
                 )}
                 
-                <p className="mt-2 text-slate-700">
+                <p className="mt-2 text-slate-700 break-words">
                   {flag.text && <span>&ldquo;{flag.text}&rdquo; </span>}
                   {flag.attributedTo && (
                     <span className="text-slate-500">
@@ -809,13 +818,13 @@ const HookMeterBadge = ({ score }) => {
 };
 
 const MetricBar = ({ label, score, strength, weakness }) => (
-  <div className="mb-4 last:mb-0">
-    <div className="mb-1 flex items-center justify-between">
-      <div className="flex items-center gap-2">
+  <div className="mb-4 last:mb-0 min-w-0">
+    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2">
+      <div className="flex min-w-0 items-center gap-2">
         <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
-        <span className="text-sm font-medium text-slate-700">{label}</span>
+        <span className="min-w-0 truncate text-sm font-medium text-slate-700">{label}</span>
       </div>
       <span className="text-sm font-semibold text-slate-600">{score}</span>
     </div>
@@ -826,10 +835,10 @@ const MetricBar = ({ label, score, strength, weakness }) => (
       />
     </div>
     {strength && (
-      <p className="mt-1 text-xs text-slate-600">+ {strength}</p>
+      <p className="mt-1 text-xs text-slate-600 break-words">+ {strength}</p>
     )}
     {weakness && (
-      <p className="mt-0.5 text-xs text-slate-500">- {weakness}</p>
+      <p className="mt-0.5 text-xs text-slate-500 break-words">- {weakness}</p>
     )}
   </div>
 );
@@ -856,7 +865,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
           <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <div>
+          <div className="min-w-0">
             <span className="text-sm font-medium">Hook Meter tidak berlaku untuk artikel ini</span>
             <p className="mt-1 text-xs text-slate-400">Hook Meter membutuhkan mode Hybrid atau LLM Penuh</p>
           </div>
@@ -872,7 +881,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
           <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <div>
+          <div className="min-w-0">
             <span className="text-sm font-medium">Hook Meter tidak berlaku untuk artikel ini</span>
             <p className="mt-1 text-xs text-slate-400">{hookMeter?.reason || 'Artikel terlalu pendek atau bukan tipe naratif'}</p>
           </div>
@@ -897,9 +906,9 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-0.5 text-left"
+        className="flex w-full min-w-0 items-center justify-between gap-3 p-0.5 text-left"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-white-50 p-0.5">
             <img
               src={mdopostLogo}
@@ -909,12 +918,12 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
               className="object-contain"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-lg font-semibold text-blue-950">Hook Meter</h3>
             <p className="text-xs text-slate-500">Storytelling Quality</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-shrink-0 items-center gap-3">
           <div className="text-right">
             <HookMeterBadge score={hookMeter.score} />
             <p className={`mt-1 text-xs font-medium ${getLevelColor(hookMeter.level)}`}>
@@ -943,7 +952,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
           )}
           
           {/* Summary */}
-          <p className="mb-4 text-sm text-slate-600">{hookMeter.summary}</p>
+          <p className="mb-4 text-sm text-slate-600 break-words">{hookMeter.summary}</p>
           
           {/* Metrics */}
           <div className="mb-4 rounded-xl bg-slate-50 p-4">
@@ -999,7 +1008,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
                   return (
                     <li key={key} className="flex items-start gap-2 text-sm text-slate-600">
                       <span className="mt-1 text-slate-400">•</span>
-                      <div>
+                      <div className="min-w-0 break-words">
                         <span className="font-medium text-slate-700">{labels[key] || key}:</span>{' '}
                         <span>{metric.weakness}</span>
                       </div>
@@ -1021,7 +1030,7 @@ const HookMeterCard = ({ hookMeter, loading, onAnalyze, mode }) => {
                     <svg className="h-4 w-4 flex-shrink-0 text-slate-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                    <span>{suggestion}</span>
+                    <span className="min-w-0 break-words">{suggestion}</span>
                   </li>
                 ))}
               </ul>
@@ -1068,7 +1077,7 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
     
     if (!hasHighlights) {
       return (
-        <p key={paraIndex} className="mb-4 text-slate-600 leading-relaxed last:mb-0">
+        <p key={paraIndex} className="mb-4 text-slate-600 leading-relaxed last:mb-0 break-words">
           {para}
         </p>
       );
@@ -1133,7 +1142,7 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
     
     return (
       <div key={paraIndex} className="mb-4 last:mb-0">
-        <p className="text-slate-600 leading-relaxed">
+        <p className="text-slate-600 leading-relaxed break-words">
           {parts.map((part, idx) => {
             if (part.type === 'normal') {
               return <span key={idx}>{part.text}</span>;
@@ -1173,10 +1182,10 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
+        className="flex w-full min-w-0 items-center justify-between gap-3 px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <svg className="h-5 w-5 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <h3 className="text-lg font-semibold text-slate-800">Teks Artikel</h3>
@@ -1188,7 +1197,7 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
         </div>
         {/* Chevron Icon */}
         <svg 
-          className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+          className={`h-5 w-5 flex-shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} 
           fill="none" 
           viewBox="0 0 24 24" 
           stroke="currentColor"
@@ -1221,11 +1230,14 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
   );
 };
 
+
+
 const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1251,41 +1263,184 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
-        <div className="mb-6 text-center">
-          <img src={mdopostLogo} alt="MP Logo" className="mx-auto mb-3 h-20 w-20 object-contain" />
-          <h1 className="text-xl font-semibold text-blue-950">Article Quality Analyzer</h1>
-          <p className="mt-1 text-sm text-slate-500">{showRegister ? "Buat akun baru" : "Masuk ke akun Anda"}</p>
+    <div className="min-h-screen flex overflow-x-hidden">
+      {/* LEFT SIDE - Elegant Dark Gradient */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-[#1a1a2e] to-[#16213e] relative overflow-hidden flex-col items-center justify-center p-12">
+        {/* Decorative elements */}
+        <div className="absolute top-20 right-20 w-80 h-80 bg-gradient-to-br from-purple-500/10 to-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-tr from-indigo-500/10 to-purple-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl" />
+        
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
+
+        {/* Logo at top left - LEBIH BESAR & RAPAT */}
+        <div className="absolute top-8 left-8 flex items-center gap-0">
+          <img
+            src={mdopostLogo}
+            alt="MDOPost Logo"
+            className="w-40 h-40 object-contain drop-shadow-2xl -mr-2"
+          />
+          <img
+            src={manadoPostWordmark}
+            alt="ManadoPost.id"
+            className="h-16 w-auto object-contain brightness-0 invert drop-shadow-2xl"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Username</label>
-            <input type="text" required value={username} onChange={e => setUsername(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+        {/* Main Content - Article Quality Analyzer */}
+        <div className="relative z-10 text-left w-full max-w-md">
+          <h1 className="text-5xl font-bold text-white tracking-tight drop-shadow-2xl leading-tight">
+            Article Quality
+          </h1>
+          <h2 className="text-5xl font-bold text-white/90 tracking-tight drop-shadow-2xl">
+            Analyzer
+          </h2>
+          
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-4 text-white/30">
+              <div className="w-12 h-0.5 bg-white/20" />
+              <span className="text-sm tracking-[0.2em] uppercase text-white/40">
+                {showRegister ? "Create Account" : "Sign In"}
+              </span>
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
-            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+        </div>
+      </div>
+
+      {/* RIGHT SIDE - White Card */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100/50 p-6">
+        <div className="w-full max-w-sm">
+          {/* Logo for mobile - DIPERBESAR */}
+          {/* Logo for mobile - DIPERBESAR & RATA KIRI */}
+          <div className="flex lg:hidden items-center gap-0 mb-8">
+            <img
+              src={mdopostLogo}
+              alt="MDOPost Logo"
+              className="w-28 h-28 object-contain drop-shadow-lg"
+            />
+            <img
+              src={manadoPostWordmark}
+              alt="ManadoPost.id"
+              className="h-14 w-auto object-contain"
+            />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {/* Card - Clean white with subtle shadow */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl shadow-slate-200/50 p-8 border border-white/50">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
+                {showRegister ? "Create your account" : "Welcome Back"}
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                {showRegister ? "Sign up to get started" : "Sign in to continue"}
+              </p>
+            </div>
 
-          <button type="submit" disabled={loading}
-            className="w-full rounded-xl bg-blue-900 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">
-            {loading ? "Memproses..." : showRegister ? "Daftar" : "Masuk"}
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-slate-600 text-sm font-medium mb-1.5">
+                  {showRegister ? "Name" : "Email Address"}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder={showRegister ? "Enter your name" : "s22310244@student.unklab.ac.id"}
+                  className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all"
+                />
+              </div>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
-          {showRegister ? "Sudah punya akun? " : "Belum punya akun? "}
-          <button onClick={() => { setShowRegister(!showRegister); setError(""); }}
-            className="font-medium text-blue-700 hover:text-blue-900">
-            {showRegister ? "Masuk" : "Daftar"}
-          </button>
-        </p>
+              {showRegister && (
+                <div>
+                  <label className="block text-slate-600 text-sm font-medium mb-1.5">
+                    E-mail Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter your email"
+                    className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-600 text-sm font-medium mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-gradient-to-r from-slate-800 via-[#1a1a2e] to-slate-900 hover:from-slate-700 hover:via-[#2a2a4e] hover:to-slate-800 rounded-xl text-white font-semibold text-base shadow-lg shadow-slate-800/20 hover:shadow-xl hover:shadow-slate-800/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  showRegister ? "Sign Up" : "Sign In"
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-slate-400 text-sm">
+                {showRegister ? "Already have an account?" : "Don't have an account?"}
+                <button
+                  type="button"
+                  onClick={() => { setShowRegister(!showRegister); setError(""); }}
+                  className="ml-2 text-slate-700 hover:text-slate-900 font-semibold transition-colors"
+                >
+                  {showRegister ? "Sign In" : "Sign Up"}
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1751,6 +1906,7 @@ function App() {
     return <LoginPage onLogin={handleLogin} showRegister={showRegister} setShowRegister={setShowRegister} />;
   }
 
+  
   const modeOptions = [
     { id: 'local', name: 'Lokal ', desc: 'tanpa API' },
     { id: 'hybrid', name: 'Hybrid (Disarankan)' },
@@ -1758,7 +1914,7 @@ function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 text-blue-950">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 text-blue-950">
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
         <Masthead user={user} onLogout={handleLogout} />
 
@@ -1825,7 +1981,7 @@ function App() {
 
           {activeTab === "paste" && (
             <>
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
                 <div className="rounded-3xl bg-blue-50 p-4 ring-1 ring-blue-200">
                   <textarea
                     value={text}
@@ -1849,7 +2005,7 @@ function App() {
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-600">
-                  Data tetap lokal dan sederhana. Fokus pada analisis artikel.
+                  Jika fetch gagal, silahkan coba lagi.
                 </div>
                 <button
                   type="button"
@@ -1865,7 +2021,7 @@ function App() {
 
           {activeTab === "url" && (
             <>
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
                 <div className="rounded-3xl bg-blue-50 p-4 ring-1 ring-blue-200">
                   <input
                     value={url}
@@ -1875,7 +2031,7 @@ function App() {
                     placeholder="Masukkan tautan artikel, misal manadopost.id/..."
                   />
                   <p className="mt-3 text-sm text-slate-500">
-                    Tempel URL artikel dari website mana pun untuk dianalisis.
+                    Hanya berlaku URL dari situs manadopost.jawapos.com
                   </p>
                 </div>
 
@@ -1894,7 +2050,7 @@ function App() {
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-600">
-                  AI akan mengekstrak konten dari URL dan menganalisisnya.
+                  Jika fetch gagal, silahkan coba lagi.
                 </div>
                 <button
                   type="button"
@@ -1920,7 +2076,7 @@ function App() {
             {/* Result Header - always full width, always first */}
             <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200 sm:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
+                <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-500">
                       Hasil Analisis
@@ -1936,11 +2092,11 @@ function App() {
                       </span>
                     )}
                   </div>
-                  <h2 className="mt-3 text-2xl font-semibold text-blue-950 sm:text-3xl">
+                  <h2 className="mt-3 text-2xl font-semibold text-blue-950 sm:text-3xl break-words">
                     Skor artikel: {result.overallScore}
                   </h2>
                   {result.sourceDomain && (
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-500 break-words">
                       Sumber: {result.sourceDomain}
                     </p>
                   )}
@@ -1952,12 +2108,12 @@ function App() {
                       )}
                     </p>
                   )}
-                  <p className="mt-2 max-w-2xl text-slate-600">
+                  <p className="mt-2 max-w-2xl text-slate-600 break-words">
                     {result.summary}
                   </p>
                 </div>
                 <span
-                  className={`inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold ${badgeColor(result.overallScore)}`}
+                  className={`inline-flex w-fit flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${badgeColor(result.overallScore)}`}
                 >
                   {verdictFromScore(result.overallScore)}
                 </span>
@@ -1967,15 +2123,15 @@ function App() {
             {/* Two-column area: sidebar (score) shows right after header on mobile, sits on the right on desktop */}
             <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
             {/* Main column */}
-            <div className="order-2 space-y-6 lg:order-1">
+            <div className="order-2 min-w-0 space-y-6 lg:order-1">
             {/* Verification Flags Section */}
             {result.verificationFlags &&
               result.verificationFlags.length > 0 && (
                 <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-5 sm:p-8">
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
                       <WarningGlyph className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-lg font-semibold text-amber-900">
                           Perlu Verifikasi Manual
                         </h3>
@@ -2019,10 +2175,10 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setHighlightsExpanded(!highlightsExpanded)}
-                    className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
+                    className="flex w-full min-w-0 items-center justify-between gap-3 px-6 py-4 text-left hover:bg-slate-50/50 transition-colors"
                   >
-                    <div className="flex items-center gap-2">
-                      <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <svg className="h-5 w-5 flex-shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <h3 className="text-lg font-semibold text-slate-800">Sorotan Kalimat</h3>
@@ -2032,7 +2188,7 @@ function App() {
                     </div>
                     {/* Chevron Icon */}
                     <svg 
-                      className={`h-5 w-5 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
+                      className={`h-5 w-5 flex-shrink-0 text-slate-400 transition-transform ${highlightsExpanded ? 'rotate-180' : ''}`} 
                       fill="none" 
                       viewBox="0 0 24 24" 
                       stroke="currentColor"
@@ -2083,14 +2239,14 @@ function App() {
                             <div
                               key={idx}
                               onClick={() => setActiveHighlightIndex(idx)}
-                              className={`rounded-xl border p-4 cursor-pointer transition-all ${
+                              className={`rounded-xl border p-4 cursor-pointer transition-all min-w-0 ${
                                 activeHighlightIndex === idx
                                   ? 'ring-2 ring-blue-500 shadow-md border-blue-300'
                                   : 'border-slate-200 hover:shadow-md hover:border-slate-300'
                               } ${categoryColor}`}
                             >
                               {/* Header item: Kategori + Severity */}
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-semibold">
                                     {categoryLabel}
@@ -2102,19 +2258,19 @@ function App() {
                               </div>
 
                               {/* Kalimat yang disorot */}
-                              <p className="text-sm text-slate-700 leading-relaxed mb-2">
+                              <p className="text-sm text-slate-700 leading-relaxed mb-2 break-words">
                                 "{item.text}"
                               </p>
 
                               {/* Detail tambahan - HANYA kata pasif, tanpa "Klik untuk kembali" */}
                               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                                 {passiveWord && (
-                                  <span className="text-slate-500">
+                                  <span className="text-slate-500 break-words">
                                     Kata pasif: <span className="font-mono text-slate-700">"{passiveWord}"</span>
                                   </span>
                                 )}
                                 {item.note && !item.note.includes('Kalimat pasif:') && (
-                                  <span className="text-slate-500">{item.note}</span>
+                                  <span className="text-slate-500 break-words">{item.note}</span>
                                 )}
                               </div>
                             </div>
@@ -2135,10 +2291,10 @@ function App() {
               {(!result.highlights || result.highlights.length === 0) && (
                 <div className="rounded-3xl bg-white shadow-sm ring-1 ring-blue-200 p-6">
                   <div className="flex items-center gap-3">
-                    <svg className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-6 w-6 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="text-lg font-semibold text-blue-950">Sorotan Kalimat</h3>
                       <p className="text-sm text-slate-500">Tidak ada kalimat yang perlu sorotan khusus</p>
                     </div>
@@ -2152,27 +2308,39 @@ function App() {
             )}
 
             {/* Auto-Revisi Section */}
+            {/* Auto-Revisi Section */}
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
+              {/* Keterangan pengembangan */}
+              <div className="mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-amber-700">Fitur dalam Pengembangan</p>
+                  <p className="text-xs text-amber-600">Fitur ini masih dalam tahap pengembangan. Beberapa fitur mungkin belum berfungsi sepenuhnya.</p>
+                </div>
+              </div>
+
               <div className="mb-5">
                 <h3 className="text-lg font-semibold text-blue-950">Auto-Revisi</h3>
                 <p className="text-sm text-slate-500 mt-0.5">Klik kategori untuk memilih, lalu klik Revisi Sekarang</p>
               </div>
 
               {/* Revision Categories Grid */}
-              <div className="grid gap-3 mb-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Bahasa & Gaya */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('bahasa')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.some(c => ['passive', 'complex', 'formal', 'puebi', 'spacing', 'trailing'].includes(c))
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">Bahasa & Gaya</span>
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Lokal</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">Bahasa & Gaya</span>
+                    <span className="flex-shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Lokal</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>Pasif</span>
@@ -2191,15 +2359,15 @@ function App() {
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('struktur')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('struktur')
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">Struktur & Format</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">Struktur & Format</span>
+                    <span className="flex-shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>Judul</span>
@@ -2216,15 +2384,15 @@ function App() {
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('seo')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('seo')
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">SEO & Audiens</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">SEO & Audiens</span>
+                    <span className="flex-shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>Keyword</span>
@@ -2239,15 +2407,15 @@ function App() {
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('konten')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('konten')
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">Konten & Sumber</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">Konten & Sumber</span>
+                    <span className="flex-shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>News Value</span>
@@ -2262,15 +2430,15 @@ function App() {
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('mesinBaca')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('mesinBaca')
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">Mesin-Baca</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">Mesin-Baca</span>
+                    <span className="flex-shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>Lead</span>
@@ -2287,15 +2455,15 @@ function App() {
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('hookMeter')}
-                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('hookMeter')
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">Storytelling</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-700">Storytelling</span>
+                    <span className="flex-shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
                     <span>Opening</span>
@@ -2307,12 +2475,12 @@ function App() {
                 </button>
 
                 {/* Etika & Legalitas - Info Card */}
-                <div className="h-[88px] flex flex-col rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-amber-800">Etika & Legalitas</span>
-                    <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-800">Info</span>
+                <div className="h-[88px] w-full min-w-0 flex flex-col rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-amber-800">Etika & Legalitas</span>
+                    <span className="flex-shrink-0 rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-800">Info</span>
                   </div>
-                  <p className="mt-1 text-xs text-amber-700">Manual - lihat flagging di Sorotan Kalimat</p>
+                  <p className="mt-1 text-xs text-amber-700 break-words">Manual - lihat flagging di Sorotan Kalimat</p>
                 </div>
               </div>
 
@@ -2334,8 +2502,8 @@ function App() {
               {/* revisionResult guard: skip if still raw JSON string */}
               {revisionResult && !revisionResult.revised_text?.includes('"revised_text"') && (
                 <div className="mt-6 border-t border-slate-200 pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-base font-semibold text-blue-950">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h4 className="min-w-0 text-base font-semibold text-blue-950">
                       Hasil Revisi
                       <span className="ml-2 text-xs font-normal text-slate-400">
                         — {(() => {
@@ -2355,7 +2523,7 @@ function App() {
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
-                      className={`rounded-lg border px-3 py-1 text-xs transition ${
+                      className={`flex-shrink-0 rounded-lg border px-3 py-1 text-xs transition ${
                         copied
                           ? 'border-green-300 bg-green-50 text-green-600'
                           : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700'
@@ -2394,7 +2562,7 @@ function App() {
                     const changedNorm = new Set(changes.map(c => normalize(c.original || '')));
                     return (
                       <div className="mb-4 rounded-xl bg-slate-50 p-4 text-sm leading-relaxed">
-                        <div className="whitespace-pre-wrap">
+                        <div className="whitespace-pre-wrap break-words">
                           {revisionResult.revised_text.split(/(?<=[.!?])\s+/).map((seg, i) =>
                             changedNorm.has(normalize(seg))
                               ? <mark key={i} className="rounded bg-green-200 text-green-900">{seg}</mark>
@@ -2425,7 +2593,7 @@ function App() {
                                 ...prev,
                                 [idx]: !prev[idx]
                               }))}
-                              className="flex w-full items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                              className="flex w-full min-w-0 items-center justify-between gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <span className="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">
@@ -2453,7 +2621,7 @@ function App() {
                                 <div>
                                   <p className="text-xs font-medium text-slate-400 mb-1.5">SEBELUM</p>
                                   <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                                    <p className="text-sm text-slate-700 leading-relaxed">{change.original}</p>
+                                    <p className="text-sm text-slate-700 leading-relaxed break-words">{change.original}</p>
                                   </div>
                                 </div>
                                 
@@ -2461,7 +2629,7 @@ function App() {
                                 <div>
                                   <p className="text-xs font-medium text-slate-400 mb-1.5">SESUDAH</p>
                                   <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
-                                    <p className="text-sm text-slate-700 leading-relaxed">{change.revised}</p>
+                                    <p className="text-sm text-slate-700 leading-relaxed break-words">{change.revised}</p>
                                   </div>
                                 </div>
                                 
@@ -2472,7 +2640,7 @@ function App() {
                                       <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                       </svg>
-                                      {change.reason}
+                                      <span className="min-w-0 break-words">{change.reason}</span>
                                     </p>
                                   </div>
                                 )}
@@ -2501,7 +2669,7 @@ function App() {
             </div>
 
             {/* Sidebar: Skor per Kategori - shows right after header on mobile, right side on desktop */}
-            <aside className="order-1 lg:sticky lg:top-6 lg:order-2">
+            <aside className="order-1 min-w-0 lg:sticky lg:top-6 lg:order-2">
               <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200 sm:p-6">
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-500">
@@ -2515,7 +2683,7 @@ function App() {
                   details={result.details}
                   activeCategory={expandedCategory}
                   onSelect={toggleCategory}
-                  layout="sidebar"
+                  layout="grid"
                 />
               </div>
             </aside>
