@@ -18,88 +18,84 @@ const authLimiter = rateLimit({
 
 router.use(authLimiter);
 
-// Email format validation
-const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+// Username format validation
+const isValidUsername = (u) => /^[a-zA-Z0-9._-]{3,30}$/.test(u);
 
 router.post("/register", async (req, res) => {
-  const { email, password, company } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email dan password diperlukan." });
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username dan password diperlukan." });
   }
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: "Format email tidak valid." });
+  if (!isValidUsername(username)) {
+    return res.status(400).json({ error: "Username 3-30 karakter (huruf, angka, . _ -)." });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password minimal 6 karakter." });
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password minimal 8 karakter." });
   }
   if (password.length > 128) {
     return res.status(400).json({ error: "Password terlalu panjang (maksimal 128 karakter)." });
   }
-  if (company && company.length > 255) {
-    return res.status(400).json({ error: "Nama perusahaan terlalu panjang." });
-  }
 
   try {
     const db = await getDb();
-    const stmt = db.prepare("SELECT id FROM users WHERE email = ?");
-    stmt.bind([email]);
+    const stmt = db.prepare("SELECT id FROM users WHERE username = ?");
+    stmt.bind([username]);
     const existing = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();
     if (existing) {
-      return res.status(409).json({ error: "Email sudah terdaftar." });
+      return res.status(409).json({ error: "Username sudah terdaftar." });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    db.run("INSERT INTO users (email, password_hash, company) VALUES (?, ?, ?)", [
-      email,
+    db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [
+      username,
       passwordHash,
-      company || "",
     ]);
 
     const lastId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
     const token = jwt.sign(
-      { id: lastId, email, company: company || "" },
+      { id: lastId, username },
       config.jwtSecret,
       { expiresIn: "24h", algorithm: "HS256" }
     );
 
-    res.status(201).json({ token, user: { id: lastId, email, company: company || "" } });
+    res.status(201).json({ token, user: { id: lastId, username } });
   } catch (err) {
     res.status(500).json({ error: "Gagal mendaftarkan akun." });
   }
 });
 
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email dan password diperlukan." });
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username dan password diperlukan." });
   }
 
   try {
     const db = await getDb();
-    const stmt = db.prepare("SELECT * FROM users WHERE email = ?");
-    stmt.bind([email]);
+    const stmt = db.prepare("SELECT * FROM users WHERE username = ?");
+    stmt.bind([username]);
     const user = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();
 
     if (!user) {
-      return res.status(401).json({ error: "Email atau password salah." });
+      return res.status(401).json({ error: "Username atau password salah." });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: "Email atau password salah." });
+      return res.status(401).json({ error: "Username atau password salah." });
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, company: user.company },
+      { id: user.id, username: user.username },
       config.jwtSecret,
       { expiresIn: "24h", algorithm: "HS256" }
     );
 
-    res.json({ token, user: { id: user.id, email: user.email, company: user.company } });
+    res.json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
     res.status(500).json({ error: "Gagal login." });
   }
@@ -114,7 +110,7 @@ router.get("/me", async (req, res) => {
   try {
     const decoded = jwt.verify(authHeader.split(" ")[1], config.jwtSecret, { algorithms: ["HS256"] });
     const db = await getDb();
-    const stmt = db.prepare("SELECT id, email, company, created_at FROM users WHERE id = ?");
+    const stmt = db.prepare("SELECT id, username, created_at FROM users WHERE id = ?");
     stmt.bind([decoded.id]);
     const user = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();

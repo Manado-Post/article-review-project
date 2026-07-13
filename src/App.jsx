@@ -23,7 +23,7 @@ const Masthead = ({ user, onLogout }) => (
     </div>
     {user && (
       <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-500">{user.email}</span>
+        <span className="text-sm text-slate-500">{user.username}</span>
         <button onClick={onLogout} className="rounded-xl bg-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-300">
           Logout
         </button>
@@ -1222,9 +1222,8 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
 };
 
 const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [company, setCompany] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -1234,7 +1233,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
     setError("");
     try {
       const endpoint = showRegister ? "/api/register" : "/api/login";
-      const body = showRegister ? { email, password, company } : { email, password };
+      const body = { username, password };
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1262,8 +1261,8 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            <label className="mb-1 block text-sm font-medium text-slate-700">Username</label>
+            <input type="text" required value={username} onChange={e => setUsername(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
           </div>
           <div>
@@ -1271,13 +1270,6 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
             <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
           </div>
-          {showRegister && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Perusahaan (opsional)</label>
-              <input type="text" value={company} onChange={e => setCompany(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-            </div>
-          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

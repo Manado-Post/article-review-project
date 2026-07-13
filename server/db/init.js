@@ -41,15 +41,33 @@ export const getDb = async () => {
 };
 
 const initSchema = () => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      company TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  // Check if old schema exists (has email column)
+  const tableInfo = db.exec("PRAGMA table_info(users)");
+  const columns = tableInfo.length > 0 ? tableInfo[0].values.map(c => c[1]) : [];
+
+  if (columns.includes("email")) {
+    // Migrate from old schema (email, company) to new (username)
+    db.run(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run("INSERT INTO users_new (id, username, password_hash, created_at) SELECT id, COALESCE(NULLIF(email, ''), 'user'), password_hash, created_at FROM users");
+    db.run("DROP TABLE users");
+    db.run("ALTER TABLE users_new RENAME TO users");
+  } else {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  }
 };
 
 export const saveDb = () => {
