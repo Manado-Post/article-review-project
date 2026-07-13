@@ -1,34 +1,27 @@
-import initSqlJs from "sql.js";
-import fs from "fs";
-import path from "path";
+import { Pool } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, "..", "data");
-const DB_PATH = path.join(DATA_DIR, "app.db");
-const WASM_PATH = path.join(DATA_DIR, "sql-wasm.wasm");
 
 const run = async () => {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-  const SQL = await initSqlJs({ locateFile: () => WASM_PATH });
-  let db;
-  if (fs.existsSync(DB_PATH)) {
-    db = new SQL.Database(fs.readFileSync(DB_PATH));
-  } else {
-    db = new SQL.Database();
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
-    )`);
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error("DATABASE_URL environment variable is required.");
+    process.exit(1);
   }
 
-  const existing = db.exec("SELECT COUNT(*) as cnt FROM users");
-  const count = existing[0]?.values[0]?.[0] || 0;
+  const pool = new Pool({ connectionString });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  const existing = await pool.query("SELECT COUNT(*)::int as cnt FROM users");
+  const count = existing.rows[0].cnt;
   if (count > 0) {
     console.log(`Users already exist (${count} found). Skipping seed.`);
   } else {
@@ -39,8 +32,8 @@ const run = async () => {
     const adminHash = await bcrypt.hash(adminPass, 10);
     const userHash = await bcrypt.hash(userPass, 10);
 
-    db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["admin", adminHash]);
-    db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["user1", userHash]);
+    await pool.query("INSERT INTO users (username, password_hash) VALUES ($1, $2)", ["admin", adminHash]);
+    await pool.query("INSERT INTO users (username, password_hash) VALUES ($1, $2)", ["user1", userHash]);
 
     console.log("=== Seed users created ===");
     console.log(`  admin / ${adminPass}`);
@@ -48,9 +41,7 @@ const run = async () => {
     console.log("=== SAVE THESE PASSWORDS ===");
   }
 
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
-  db.close();
+  await pool.end();
 };
 
 run().catch((err) => {

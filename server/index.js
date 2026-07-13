@@ -36,12 +36,12 @@ getDb().catch((err) => {
 });
 
 // Wait for DB init before accepting connections
-const db = await getDb();
+const pool = await getDb();
 
-// Auto-seed default users on startup (DB resets on Render redeploy)
+// Auto-seed default users on startup (fresh DB)
 const seedUsers = async () => {
-  const existing = db.exec("SELECT COUNT(*) as cnt FROM users");
-  const count = existing[0]?.values[0]?.[0] || 0;
+  const existing = await pool.query("SELECT COUNT(*)::int as cnt FROM users");
+  const count = existing.rows[0].cnt;
   if (count > 0) return;
 
   const generatePassword = () => crypto.randomBytes(4).toString("hex") + "!";
@@ -51,8 +51,8 @@ const seedUsers = async () => {
   const adminHash = await bcrypt.hash(adminPass, 10);
   const userHash = await bcrypt.hash(userPass, 10);
 
-  db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["admin", adminHash]);
-  db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["user1", userHash]);
+  await pool.query("INSERT INTO users (username, password_hash) VALUES ($1, $2)", ["admin", adminHash]);
+  await pool.query("INSERT INTO users (username, password_hash) VALUES ($1, $2)", ["user1", userHash]);
 
   logger.info(`=== Seed users created (fresh DB) ===`);
   logger.info(`  admin / ${adminPass}`);
@@ -60,8 +60,6 @@ const seedUsers = async () => {
   logger.info(`  === SAVE THESE PASSWORDS ===`);
 };
 await seedUsers();
-import { saveDb } from "./db/init.js";
-saveDb();
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -86,6 +84,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Terjadi kesalahan internal server." });
 });
 
-app.listen(config.port, () => {
-  logger.info({ port: config.port }, "Server started");
-});
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    logger.info({ port: config.port }, "Server started");
+  });
+}
+
+export default app;
