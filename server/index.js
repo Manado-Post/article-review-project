@@ -6,6 +6,8 @@ import authRoutes from "./routes/auth.js";
 import { authenticate } from "./middleware/auth.js";
 import { config } from "./config.js";
 import { logger } from "./services/logger.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const app = express();
 
@@ -30,7 +32,32 @@ getDb().catch((err) => {
 });
 
 // Wait for DB init before accepting connections
-await getDb();
+const db = await getDb();
+
+// Auto-seed default users on startup (DB resets on Render redeploy)
+const seedUsers = async () => {
+  const existing = db.exec("SELECT COUNT(*) as cnt FROM users");
+  const count = existing[0]?.values[0]?.[0] || 0;
+  if (count > 0) return;
+
+  const generatePassword = () => crypto.randomBytes(4).toString("hex") + "!";
+  const adminPass = generatePassword();
+  const userPass = generatePassword();
+
+  const adminHash = await bcrypt.hash(adminPass, 10);
+  const userHash = await bcrypt.hash(userPass, 10);
+
+  db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["admin", adminHash]);
+  db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ["user1", userHash]);
+
+  logger.info(`=== Seed users created (fresh DB) ===`);
+  logger.info(`  admin / ${adminPass}`);
+  logger.info(`  user1 / ${userPass}`);
+  logger.info(`  === SAVE THESE PASSWORDS ===`);
+};
+await seedUsers();
+import { saveDb } from "./db/init.js";
+saveDb();
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
