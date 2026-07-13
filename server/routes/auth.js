@@ -13,7 +13,7 @@ const authLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Terlalu banyak percobaan. Coba lagi dalam 15 menit." },
+  message: { error: "Terlalu banyak percobaan. Coba lagi dalam beberapa menit." },
 });
 
 router.use(authLimiter);

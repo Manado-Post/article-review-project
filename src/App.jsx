@@ -23,13 +23,13 @@ const Masthead = ({ user, onLogout }) => (
     </div>
     
     {user && (
-      <div className="flex min-w-0 items-center gap-3 pt-1">
-        <span className="max-w-[160px] truncate text-sm font-medium text-slate-700 bg-white/80 px-3 py-1.5 rounded-lg shadow-sm border border-slate-200/50">
+      <div className="flex min-w-0 items-center gap-2 pt-1">
+        <span className="max-w-[120px] truncate text-sm font-medium text-slate-700">
           {user.username}
         </span>
         <button 
           onClick={onLogout} 
-          className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-all duration-200 border border-red-200/50 hover:border-red-300/50"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
           title="Logout"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -84,9 +84,7 @@ const Recommendation = ({ text }) => {
 };
 
 // Category score card component
-// Category score card component - KEEP ORIGINAL COLOR
 const ScoreCard = ({ category, isActive, onClick, score }) => {
-  // Tentukan warna berdasarkan skor (tidak terpengaruh isActive)
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-emerald-600';
     if (score >= 60) return 'text-blue-600';
@@ -96,20 +94,35 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
   
   const scoreColor = getScoreColor(score);
   
+  // Pendekkan nama kategori jika terlalu panjang
+  const getShortCategory = (name) => {
+    const shortNames = {
+      'Konten & Sumber': 'Konten & Sumber',
+      'Struktur/Format': 'Struktur/Format',
+      'Bahasa & Gaya': 'Bahasa & Gaya',
+      'Etika & Legalitas': 'Etika & Legalitas',
+      'Pemeriksaan Teknis': 'Pemeriksaan Teknis',
+      'Mesin-Baca (AI-SEO)': 'Mesin-Baca',
+    };
+    return shortNames[name] || name;
+  };
+  
+  const displayCategory = getShortCategory(category);
+  
   return (
     <button
       onClick={onClick}
-      className={`flex w-full min-w-0 items-center gap-3 rounded-xl px-4 py-2 text-left transition-all ${
+      className={`flex w-full min-w-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-left transition-all ${
         isActive 
           ? 'bg-blue-900 shadow-md' 
-          : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+          : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:shadow-sm'
       }`}
     >
-      <span className={`flex-shrink-0 text-xl font-bold ${scoreColor}`}> {/* Warna tetap sesuai skor */}
+      <span className={`flex-shrink-0 text-base sm:text-lg font-bold ${scoreColor}`}>
         {score}
       </span>
-      <span className={`min-w-0 flex-1 break-words text-sm font-medium ${isActive ? 'text-white' : 'text-slate-700'}`}>
-        {category}
+      <span className={`min-w-0 flex-1 text-[11px] sm:text-xs font-medium leading-tight ${isActive ? 'text-white' : 'text-slate-700'}`}>
+        {displayCategory}
       </span>
       <ChevronIcon expanded={isActive} />
     </button>
@@ -119,12 +132,12 @@ const ScoreCard = ({ category, isActive, onClick, score }) => {
 // Category overview strip with expandable panels
 const CategoryOverviewStrip = ({ details, activeCategory, onSelect, layout = "grid" }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 w-full">
       <div
         className={
           layout === "sidebar"
-            ? "grid grid-cols-1 gap-2"
-            : "grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            ? "grid grid-cols-2 gap-2"
+            : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3"
         }
       >
         {details?.map((category) => (
@@ -138,7 +151,6 @@ const CategoryOverviewStrip = ({ details, activeCategory, onSelect, layout = "gr
         ))}
       </div>
       
-      {/* Expanded detail panel */}
       {details?.map((category) => (
         <CategoryDetail
           key={`detail-${category.name}`}
@@ -2070,6 +2082,28 @@ function App() {
             </div>
           )}
         </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200 mt-6">
+              <div className="flex flex-col items-center justify-center py-8 sm:py-12">
+                <div className="relative">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+                <p className="mt-4 text-lg sm:text-xl font-semibold text-blue-900">Menganalisis Artikel</p>
+                <p className="mt-1 text-sm text-slate-500 text-center">Mohon tunggu, AI sedang memproses artikel Anda...</p>
+                <div className="mt-4 flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
+                <p className="mt-4 text-xs text-slate-400">Proses ini mungkin memakan waktu beberapa detik</p>
+              </div>
+            </div>
+          )}
 
         {result && (
           <section className="space-y-6">
