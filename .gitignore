@@ -2,6 +2,12 @@ node_modules
 dist
 .env
 server/.cache
+# SQLite DB files — ephemeral on free tier Render
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+# WASM binary for sql.js — MUST be committed
+!server/data/sql-wasm.wasm
 
 AGENTS.md
 

@@ -5,34 +5,30 @@ import manadoPostWordmark from "./assets/logo.webp";
 // ============================================
 // MISSING UI COMPONENTS
 // ============================================
-const Masthead = () => (
+const Masthead = ({ user, onLogout }) => (
   <header className="mb-1 flex items-center justify-between gap-1 sm:mb-1 sm:gap-1">
     <div className="flex flex-shrink-0 items-center">
-      {/* Logo - Lebih besar di mobile, tetap besar di desktop */}
       <img
         src={mdopostLogo}
         alt="MP Logo"
         className="h-32 w-32 flex-shrink-0 rounded-xl object-contain sm:h-40 sm:w-40 lg:h-48 lg:w-48"
-        style={{ 
-          maxWidth: '160px', 
-          maxHeight: '160px',
-          marginTop: '-10px',
-          marginBottom: '-10px'
-        }}
+        style={{ maxWidth: '160px', maxHeight: '160px', marginTop: '-10px', marginBottom: '-10px' }}
       />
-      {/* Wordmark - Lebih besar di mobile, tetap besar di desktop */}
       <img
         src={manadoPostWordmark}
         alt="ManadoPost.id"
         className="h-14 w-auto object-contain sm:h-20 lg:h-26"
-        style={{ 
-          maxHeight: '80px',
-          marginLeft: '-6px',
-          marginTop: '-6px',
-          marginBottom: '-6px'
-        }}
+        style={{ maxHeight: '80px', marginLeft: '-6px', marginTop: '-6px', marginBottom: '-6px' }}
       />
     </div>
+    {user && (
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-slate-500">{user.email}</span>
+        <button onClick={onLogout} className="rounded-xl bg-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-300">
+          Logout
+        </button>
+      </div>
+    )}
   </header>
 );
 
@@ -1225,6 +1221,84 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
   );
 };
 
+const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [company, setCompany] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const endpoint = showRegister ? "/api/register" : "/api/login";
+      const body = showRegister ? { email, password, company } : { email, password };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal");
+      localStorage.setItem("token", data.token);
+      onLogin(data.token, data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
+        <div className="mb-6 text-center">
+          <img src={mdopostLogo} alt="MP Logo" className="mx-auto mb-3 h-20 w-20 object-contain" />
+          <h1 className="text-xl font-semibold text-blue-950">Article Quality Analyzer</h1>
+          <p className="mt-1 text-sm text-slate-500">{showRegister ? "Buat akun baru" : "Masuk ke akun Anda"}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+          </div>
+          {showRegister && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Perusahaan (opsional)</label>
+              <input type="text" value={company} onChange={e => setCompany(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+            </div>
+          )}
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button type="submit" disabled={loading}
+            className="w-full rounded-xl bg-blue-900 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">
+            {loading ? "Memproses..." : showRegister ? "Daftar" : "Masuk"}
+          </button>
+        </form>
+
+        <p className="mt-4 text-center text-sm text-slate-500">
+          {showRegister ? "Sudah punya akun? " : "Belum punya akun? "}
+          <button onClick={() => { setShowRegister(!showRegister); setError(""); }}
+            className="font-medium text-blue-700 hover:text-blue-900">
+            {showRegister ? "Masuk" : "Daftar"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [text, setText] = useState(sampleArticle);
   const [url, setUrl] = useState("");
@@ -1234,6 +1308,11 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [expandedCategory, setExpandedCategory] = useState(null);
+
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(!!token);
+  const [showRegister, setShowRegister] = useState(false);
   
   // Revision states
   const [reviseCategories, setReviseCategories] = useState(['passive', 'complex', 'formal', 'puebi']);
@@ -1259,6 +1338,18 @@ function App() {
   const [activeHighlightIndex, setActiveHighlightIndex] = useState(null);
   const highlightsRef = useRef(null); // Ref for Sorotan Kalimat section
   
+  useEffect(() => {
+    if (token) {
+      fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => setUser(d.user))
+        .catch(() => { setToken(null); localStorage.removeItem("token"); })
+        .finally(() => setAuthLoading(false));
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
   // Scroll to highlights section when activeHighlightIndex changes
   useEffect(() => {
     if (activeHighlightIndex !== null && highlightsRef.current) {
@@ -1498,7 +1589,7 @@ function App() {
         
         const response = await fetch("/api/revise", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify({
             text: sourceText,
             categories: apiCategories
@@ -1561,7 +1652,7 @@ function App() {
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           text: activeTab === "url" ? "" : text,
           url: activeTab === "url" ? url : "",
@@ -1590,7 +1681,7 @@ function App() {
       try {
         const hookMeterResponse = await fetch("/api/hook-meter", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify({
             text: data.extracted_body || text
           }),
@@ -1619,6 +1710,29 @@ function App() {
     }
   };
 
+  const handleLogin = (newToken, userData) => {
+    setToken(newToken);
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("token");
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-900 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <LoginPage onLogin={handleLogin} showRegister={showRegister} setShowRegister={setShowRegister} />;
+  }
+
   const modeOptions = [
     { id: 'local', name: 'Lokal ', desc: 'tanpa API' },
     { id: 'hybrid', name: 'Hybrid (Disarankan)' },
@@ -1628,7 +1742,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 text-blue-950">
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
-        <Masthead />
+        <Masthead user={user} onLogout={handleLogout} />
 
         <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-blue-200/80 sm:mb-8 sm:p-8">
           <div className="mb-6 max-w-3xl">
@@ -1639,8 +1753,7 @@ function App() {
               Analisis kualitas artikel secara cepat
             </h1>
             <p className="mt-3 text-base leading-7 text-slate-600">
-              Tempel teks artikel atau masukkan tautan. Tidak ada login, tidak
-              ada dashboard yang rumit &mdash; langsung analisis.
+               Tempel teks artikel atau masukkan tautan untuk analisis kualitas.
             </p>
           </div>
 
