@@ -1221,6 +1221,73 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
   );
 };
 
+const PinGate = ({ onVerified }) => {
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (pin.length !== 6) {
+      setError("PIN harus 6 digit.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "PIN salah.");
+      sessionStorage.setItem("pin_verified", "true");
+      onVerified();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-50 p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200">
+        <div className="mb-6 text-center">
+          <img src={mdopostLogo} alt="MP Logo" className="mx-auto mb-3 h-20 w-20 object-contain" />
+          <h1 className="text-xl font-semibold text-blue-950">Article Quality Analyzer</h1>
+          <p className="mt-1 text-sm text-slate-500">Masukkan PIN akses</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={pin}
+              onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+              placeholder="••••••"
+              autoFocus
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-2xl tracking-[0.5em] letter-spacing-[0.5em] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              style={{ letterSpacing: "0.5em" }}
+            />
+          </div>
+
+          {error && <p className="text-sm text-center text-red-600">{error}</p>}
+
+          <button type="submit" disabled={loading || pin.length !== 6}
+            className="w-full rounded-xl bg-blue-900 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">
+            {loading ? "Memproses..." : "Masuk"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -1305,6 +1372,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(!!token);
   const [showRegister, setShowRegister] = useState(false);
+
+  const pinEnabled = import.meta.env.VITE_PIN_ENABLED === "true";
+  const [hasPinVerified, setHasPinVerified] = useState(() => {
+    if (!pinEnabled) return true;
+    return sessionStorage.getItem("pin_verified") === "true";
+  });
   
   // Revision states
   const [reviseCategories, setReviseCategories] = useState(['passive', 'complex', 'formal', 'puebi']);
@@ -1712,6 +1785,10 @@ function App() {
     setUser(null);
     localStorage.removeItem("token");
   };
+
+  if (pinEnabled && !hasPinVerified) {
+    return <PinGate onVerified={() => setHasPinVerified(true)} />;
+  }
 
   if (authLoading) {
     return (
