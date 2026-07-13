@@ -758,10 +758,9 @@ export const reviseText = async (text, categories = ['passive', 'complex', 'form
     throw new Error("Teks artikel diperlukan");
   }
 
-  // Truncate for long articles
   let truncatedText = text;
-  if (text.length > 5000) {
-    truncatedText = text.slice(0, 5000);
+  if (text.length > 4000) {
+    truncatedText = text.slice(0, 3000) + '\n...\n' + text.slice(-1000);
   }
 
   const systemPrompt = generateRevisionPrompt(categories);
