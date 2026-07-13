@@ -2224,27 +2224,28 @@ function App() {
           )}
         </div>
 
-          {/* Loading State */}
-          {loading && (
-            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200 mt-6">
-              <div className="flex flex-col items-center justify-center py-8 sm:py-12">
-                <div className="relative">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full animate-pulse"></div>
-                  </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-blue-200 mt-6">
+            <div className="flex flex-col items-center justify-center py-8 sm:py-12">
+              <div className="relative">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full animate-pulse"></div>
                 </div>
-                <p className="mt-4 text-lg sm:text-xl font-semibold text-blue-900">Menganalisis Artikel</p>
-                <p className="mt-1 text-sm text-slate-500 text-center">Mohon tunggu, AI sedang memproses artikel Anda...</p>
-                <div className="mt-4 flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                </div>
-                <p className="mt-4 text-xs text-slate-400">Proses ini mungkin memakan waktu beberapa detik</p>
               </div>
+              <p className="mt-4 text-lg sm:text-xl font-semibold text-blue-900">Menganalisis Artikel</p>
+              <p className="mt-1 text-sm text-slate-500 text-center">Mohon tunggu, AI sedang memproses artikel Anda...</p>
+              {/* HAPUS BAGIAN INI - TITIK 3 */}
+              {/* <div className="mt-4 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div> */}
+              <p className="mt-4 text-xs text-slate-400">Proses ini mungkin memakan waktu beberapa detik</p>
             </div>
-          )}
+          </div>
+        )}
 
         {result && (
           <section className="space-y-6">
