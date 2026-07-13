@@ -1,5 +1,4 @@
 node_modules
-dist
 .env
 server/.cache
 # SQLite DB files — ephemeral on free tier Render
