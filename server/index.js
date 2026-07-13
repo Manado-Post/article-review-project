@@ -1,15 +1,85 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import analyzeRouter from "./routes/analyze.js";
+import authRoutes from "./routes/auth.js";
+import { authenticate } from "./middleware/auth.js";
 import { config } from "./config.js";
 import { logger } from "./services/logger.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { getDb } from "./db/init.js";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: "500kb" })); // prevent OOM from large payloads
+// Security headers
+app.use(helmet());
 
-// Global error handler — catch any uncaught exception
+// CORS: restrict to same origin or configured frontend URL
+app.use(cors({
+  origin: process.env.FRONTEND_URL || true, // true = same origin
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.use(express.json({ limit: "500kb" }));
+app.timeout = 120_000; // 2-minute global request timeout
+
+// Initialize DB before handling requests
+let pool;
+try {
+  pool = await getDb();
+} catch (err) {
+  logger.error({ err }, "Failed to initialize database");
+  if (!process.env.VERCEL) process.exit(1);
+  // On Vercel: continue without DB (API will fail gracefully)
+}
+
+// Auto-seed default users on startup (fresh DB)
+const seedUsers = async () => {
+  if (!pool) return;
+  try {
+    const existing = await pool.query("SELECT COUNT(*)::int as cnt FROM users");
+    const count = existing.rows[0].cnt;
+    if (count > 0) return;
+
+    const generatePassword = () => crypto.randomBytes(4).toString("hex") + "!";
+    const adminPass = generatePassword();
+    const userPass = generatePassword();
+
+    const adminHash = await bcrypt.hash(adminPass, 10);
+    const userHash = await bcrypt.hash(userPass, 10);
+
+    await pool.query(
+      "INSERT INTO users (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING",
+      ["admin", adminHash]
+    );
+    await pool.query(
+      "INSERT INTO users (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING",
+      ["user1", userHash]
+    );
+
+    logger.info(`=== Seed users created (fresh DB) ===`);
+    logger.info(`  admin / ${adminPass}`);
+    logger.info(`  user1 / ${userPass}`);
+    logger.info(`  === SAVE THESE PASSWORDS ===`);
+  } catch (err) {
+    logger.error({ err }, "Seed failed — continuing anyway");
+  }
+};
+await seedUsers();
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.use("/api", authRoutes);
+app.use("/api", authenticate, analyzeRouter);
+
+// Serve built frontend in production
+// Note: Vercel serves static files natively (vercel.json outputDirectory: "dist")
+// Express static serving is disabled — only API routes here
+
 app.use((err, req, res, next) => {
   logger.error({ err, method: req.method, path: req.path }, "Unhandled error");
   if (err && err.message && (err.message.includes("timeout") || err.message === "timeout")) {
@@ -18,12 +88,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Terjadi kesalahan internal server." });
 });
 
-app.use("/api", analyzeRouter);
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    logger.info({ port: config.port }, "Server started");
+  });
+}
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-app.listen(config.port, () => {
-  logger.info({ port: config.port }, "Server started");
-});
+export default app;

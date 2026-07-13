@@ -36,10 +36,15 @@ const CHROME_PATHS = {
  * @param {string} url
  * @returns {boolean}
  */
+// Block private, loopback, and cloud-metadata IP ranges (SSRF prevention)
+const BLOCKED_HOST_REGEX = /^(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+|192\.168\.\d+\.\d+|127\.\d+\.\d+\.\d+|0\.\d+\.\d+\.\d+|localhost|\[?::1\]?|169\.254\.169\.254|169\.254\.\d+\.\d+)/i;
+
 const isValidUrl = (url) => {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    if (BLOCKED_HOST_REGEX.test(parsed.hostname)) return false;
+    return true;
   } catch {
     return false;
   }
