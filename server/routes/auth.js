@@ -38,22 +38,18 @@ router.post("/register", async (req, res) => {
   }
 
   try {
-    const db = await getDb();
-    const stmt = db.prepare("SELECT id FROM users WHERE username = ?");
-    stmt.bind([username]);
-    const existing = stmt.step() ? stmt.getAsObject() : null;
-    stmt.free();
-    if (existing) {
+    const pool = await getDb();
+    const existing = await pool.query("SELECT id FROM users WHERE username = $1", [username]);
+    if (existing.rows.length > 0) {
       return res.status(409).json({ error: "Username sudah terdaftar." });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [
-      username,
-      passwordHash,
-    ]);
-
-    const lastId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+    const insertResult = await pool.query(
+      "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id",
+      [username, passwordHash]
+    );
+    const lastId = insertResult.rows[0].id;
     const token = jwt.sign(
       { id: lastId, username },
       config.jwtSecret,
@@ -74,11 +70,9 @@ router.post("/login", async (req, res) => {
   }
 
   try {
-    const db = await getDb();
-    const stmt = db.prepare("SELECT * FROM users WHERE username = ?");
-    stmt.bind([username]);
-    const user = stmt.step() ? stmt.getAsObject() : null;
-    stmt.free();
+    const pool = await getDb();
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+    const user = result.rows[0] || null;
 
     if (!user) {
       return res.status(401).json({ error: "Username atau password salah." });
@@ -109,11 +103,9 @@ router.get("/me", async (req, res) => {
 
   try {
     const decoded = jwt.verify(authHeader.split(" ")[1], config.jwtSecret, { algorithms: ["HS256"] });
-    const db = await getDb();
-    const stmt = db.prepare("SELECT id, username, created_at FROM users WHERE id = ?");
-    stmt.bind([decoded.id]);
-    const user = stmt.step() ? stmt.getAsObject() : null;
-    stmt.free();
+    const pool = await getDb();
+    const result = await pool.query("SELECT id, username, created_at FROM users WHERE id = $1", [decoded.id]);
+    const user = result.rows[0] || null;
     if (!user) {
       return res.status(404).json({ error: "User tidak ditemukan." });
     }
