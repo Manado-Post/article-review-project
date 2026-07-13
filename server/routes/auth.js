@@ -16,8 +16,6 @@ const authLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan. Coba lagi dalam beberapa menit." },
 });
 
-router.use(authLimiter);
-
 // PIN Gate — verify before login
 router.post("/verify-pin", (req, res) => {
   const { pin } = req.body;
@@ -33,7 +31,7 @@ router.post("/verify-pin", (req, res) => {
 // Username format validation
 const isValidUsername = (u) => /^[a-zA-Z0-9._-]{3,30}$/.test(u);
 
-router.post("/register", async (req, res) => {
+router.post("/register", authLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -74,7 +72,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
