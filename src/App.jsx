@@ -1333,7 +1333,7 @@ const PinGate = ({ onVerified }) => {
 
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl shadow-slate-200/50 p-8 border border-white/50">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-[#005a8c] tracking-tight">
+              <h2 className="text-3xl font-bold text-[rgb(0,90,140)] tracking-tight">
                 PIN Akses
               </h2>
               <p className="text-[#005a8c]-400 text-sm mt-1">
@@ -1507,7 +1507,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="Masukkan username"
-                  className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-[#005a8c]-400 focus:ring-2 focus:ring-[#005a8c]-400/20 focus:bg-white transition-all"
                 />
               </div>
 
@@ -1522,7 +1522,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Masukkan password"
-                    className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all pr-12"
+                    className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-[#005a8c]-400 focus:ring-2 focus:ring-[#005a8c]-400/20 focus:bg-white transition-all pr-12"
                   />
                   <button
                     type="button"
