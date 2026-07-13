@@ -1,4 +1,6 @@
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
 import analyzeRouter from "./routes/analyze.js";
@@ -8,6 +10,8 @@ import { config } from "./config.js";
 import { logger } from "./services/logger.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
@@ -65,6 +69,14 @@ app.get("/health", (req, res) => {
 
 app.use("/api", authRoutes);
 app.use("/api", authenticate, analyzeRouter);
+
+// Serve built frontend in production
+const distPath = path.join(__dirname, "..", "dist");
+app.use(express.static(distPath));
+app.get("*", (req, res) => {
+  if (!req.path.startsWith("/api"))
+    res.sendFile(path.join(distPath, "index.html"));
+});
 
 app.use((err, req, res, next) => {
   logger.error({ err, method: req.method, path: req.path }, "Unhandled error");
