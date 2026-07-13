@@ -1460,6 +1460,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(!!token);
   const [showRegister, setShowRegister] = useState(false);
+
+  const pinEnabled = import.meta.env.VITE_PIN_ENABLED === "true";
+  const [hasPinVerified, setHasPinVerified] = useState(() => {
+    if (!pinEnabled) return true;
+    return sessionStorage.getItem("pin_verified") === "true";
+  });
   
   // Revision states
   const [reviseCategories, setReviseCategories] = useState(['passive', 'complex', 'formal', 'puebi']);
@@ -1893,6 +1899,10 @@ function App() {
     setUser(null);
     localStorage.removeItem("token");
   };
+
+  if (pinEnabled && !hasPinVerified) {
+    return <PinGate onVerified={() => setHasPinVerified(true)} />;
+  }
 
   if (authLoading) {
     return (
