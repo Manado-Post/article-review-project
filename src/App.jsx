@@ -1310,6 +1310,8 @@ function App() {
   const [reviseCategories, setReviseCategories] = useState(['passive', 'complex', 'formal', 'puebi']);
   const [revising, setRevising] = useState(false);
   const [revisionResult, setRevisionResult] = useState(null);
+  // Di bagian state, setelah revisionResult
+  const [expandedChanges, setExpandedChanges] = useState({});
   const [revisionError, setRevisionError] = useState("");
   const [copied, setCopied] = useState(false);
   
@@ -1440,6 +1442,30 @@ function App() {
     
   // Handle category checkbox toggle
   const toggleRevisionCategory = (categoryId) => {
+    // Jika yang diklik adalah 'bahasa' (master toggle untuk sub-kategori)
+    if (categoryId === 'bahasa') {
+      const bahasaSubs = ['passive', 'complex', 'formal', 'puebi', 'spacing', 'trailing'];
+      const allActive = bahasaSubs.every(c => reviseCategories.includes(c));
+      
+      setReviseCategories(prev => {
+        if (allActive) {
+          // Jika semua aktif, hapus semua
+          return prev.filter(c => !bahasaSubs.includes(c));
+        } else {
+          // Jika tidak semua aktif, tambahkan semua yang belum ada
+          const newCats = [...prev];
+          bahasaSubs.forEach(c => {
+            if (!newCats.includes(c)) {
+              newCats.push(c);
+            }
+          });
+          return newCats;
+        }
+      });
+      return;
+    }
+    
+    // Untuk kategori lain (toggle normal)
     setReviseCategories(prev => 
       prev.includes(categoryId)
         ? prev.filter(c => c !== categoryId)
@@ -2127,148 +2153,167 @@ function App() {
 
             {/* Auto-Revisi Section */}
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-blue-200">
-              <h3 className="text-lg font-semibold text-blue-950 mb-1">
-                Auto-Revisi
-              </h3>
-              <p className="text-sm text-slate-500 mb-4">
-                Klik kategori untuk memilih, lalu klik Revisi Sekarang.
-              </p>
+              <div className="mb-5">
+                <h3 className="text-lg font-semibold text-blue-950">Auto-Revisi</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Klik kategori untuk memilih, lalu klik Revisi Sekarang</p>
+              </div>
 
-              {/* 5 Revision Category Cards */}
+              {/* Revision Categories Grid */}
               <div className="grid gap-3 mb-4 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Bahasa & Gaya */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('bahasa')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
-                    reviseCategories.includes('bahasa')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                    reviseCategories.some(c => ['passive', 'complex', 'formal', 'puebi', 'spacing', 'trailing'].includes(c))
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Bahasa & Gaya</span>
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Lokal</span>
                   </div>
-                  <span className="text-xs text-slate-500">Pasif, Kompleks, Formal, PUEBI, Spasi, Teknis</span>
-                  {reviseCategories.includes('bahasa') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>Pasif</span>
+                    <span>·</span>
+                    <span>Kompleks</span>
+                    <span>·</span>
+                    <span>Formal</span>
+                    <span>·</span>
+                    <span>PUEBI</span>
+                    <span>·</span>
+                    <span>Spasi</span>
+                  </div>
                 </button>
 
                 {/* Struktur & Format */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('struktur')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('struktur')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Struktur & Format</span>
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
-                  <span className="text-xs text-slate-500">Judul, Lead, H3, Piramida, Paragraf, Penutup</span>
-                  {reviseCategories.includes('struktur') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>Judul</span>
+                    <span>·</span>
+                    <span>Lead</span>
+                    <span>·</span>
+                    <span>H3</span>
+                    <span>·</span>
+                    <span>Piramida</span>
+                  </div>
                 </button>
 
                 {/* SEO & Audiens */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('seo')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('seo')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">SEO & Audiens</span>
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
-                  <span className="text-xs text-slate-500">Keyword, Dead Paragraph, Readability, Kalimat</span>
-                  {reviseCategories.includes('seo') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>Keyword</span>
+                    <span>·</span>
+                    <span>Readability</span>
+                    <span>·</span>
+                    <span>Kalimat</span>
+                  </div>
                 </button>
 
                 {/* Konten & Sumber */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('konten')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('konten')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Konten & Sumber</span>
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
-                  <span className="text-xs text-slate-500">News Value, Kutipan, Sumber Resmi</span>
-                  {reviseCategories.includes('konten') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>News Value</span>
+                    <span>·</span>
+                    <span>Kutipan</span>
+                    <span>·</span>
+                    <span>Sumber</span>
+                  </div>
                 </button>
 
                 {/* Mesin-Baca */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('mesinBaca')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('mesinBaca')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Mesin-Baca</span>
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
-                  <span className="text-xs text-slate-500">Lead, Heading, Atribusi, 5W1H</span>
-                  {reviseCategories.includes('mesinBaca') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>Lead</span>
+                    <span>·</span>
+                    <span>Heading</span>
+                    <span>·</span>
+                    <span>Atribusi</span>
+                    <span>·</span>
+                    <span>5W1H</span>
+                  </div>
                 </button>
 
                 {/* Storytelling */}
                 <button
                   type="button"
                   onClick={() => toggleRevisionCategory('hookMeter')}
-                  className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
+                  className={`h-[88px] flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
                     reviseCategories.includes('hookMeter')
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
-                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Storytelling</span>
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">AI</span>
                   </div>
-                  <span className="text-xs text-slate-500">Opening Hook, Karakter, Alur Cerita</span>
-                  {reviseCategories.includes('hookMeter') && (
-                    <CheckGlyph className="h-4 w-4 text-blue-500 self-end" />
-                  )}
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                    <span>Opening</span>
+                    <span>·</span>
+                    <span>Karakter</span>
+                    <span>·</span>
+                    <span>Alur</span>
+                  </div>
                 </button>
 
                 {/* Etika & Legalitas - Info Card */}
-                <button
-                  type="button"
-                  onClick={() => setExpandedCategory(expandedCategory === 'Etika & Legalitas' ? null : 'Etika & Legalitas')}
-                  className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:border-amber-300"
-                >
+                <div className="h-[88px] flex flex-col rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-amber-800">Etika & Legalitas</span>
                     <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-800">Info</span>
                   </div>
-                  <span className="text-xs text-amber-700">Manual - lihat flagging di Sorotan Kalimat</span>
-                  <ChevronIcon expanded={expandedCategory === 'Etika & Legalitas'} />
-                </button>
+                  <p className="mt-1 text-xs text-amber-700">Manual - lihat flagging di Sorotan Kalimat</p>
+                </div>
               </div>
 
               {revisionError && (
@@ -2281,7 +2326,7 @@ function App() {
                 type="button"
                 onClick={handleRevise}
                 disabled={revising || reviseCategories.length === 0}
-                className="rounded-xl bg-blue-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-xl bg-blue-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {revising ? 'Merevisi...' : 'Revisi Sekarang'}
               </button>
@@ -2359,51 +2404,90 @@ function App() {
                       </div>
                     );
                   })()}
-
-                  {/* Changes detail */}
+                  
+                  {/* Changes detail - Dropdown Version */}
                   {revisionResult.changes && revisionResult.changes.length > 0 ? (
                     <div className="space-y-3">
-                      <p className="text-sm font-medium text-slate-700">Detail Perubahan:</p>
-                      {revisionResult.changes.map((change, idx) => (
-                        <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                              change.type === 'passive' || change.type === 'bahasa' ? 'bg-red-100 text-red-700' :
-                              change.type === 'complex' ? 'bg-amber-100 text-amber-700' :
-                              change.type === 'formal' ? 'bg-blue-100 text-blue-700' :
-                              change.type === 'puebi' ? 'bg-cyan-100 text-cyan-700' :
-                              change.type === 'spacing' ? 'bg-slate-100 text-slate-700' :
-                              change.type === 'trailing' ? 'bg-gray-100 text-gray-700' :
-                              change.type === 'struktur' ? 'bg-purple-100 text-purple-700' :
-                              change.type === 'seo' ? 'bg-indigo-100 text-indigo-700' :
-                              change.type === 'konten' ? 'bg-orange-100 text-orange-700' :
-                              change.type === 'mesinBaca' ? 'bg-teal-100 text-teal-700' :
-                              change.type === 'hookMeter' ? 'bg-pink-100 text-pink-700' :
-                              'bg-green-100 text-green-700'
-                            }`}>
-                              {(change.type || 'unknown').toUpperCase()}
-                            </span>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-slate-700">Detail Perubahan:</p>
+                        <span className="text-xs text-slate-400">{revisionResult.changes.length} perubahan</span>
+                      </div>
+                      
+                      {revisionResult.changes.map((change, idx) => {
+                        const isOpen = expandedChanges[idx] || false;
+                        
+                        return (
+                          <div key={idx} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                            {/* Header - Clickable to toggle */}
+                            <button
+                              type="button"
+                              onClick={() => setExpandedChanges(prev => ({
+                                ...prev,
+                                [idx]: !prev[idx]
+                              }))}
+                              className="flex w-full items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">
+                                  {(change.type || 'unknown').toUpperCase()}
+                                </span>
+                                <span className="text-xs text-slate-500 truncate">
+                                  {change.original?.slice(0, 60)}...
+                                </span>
+                              </div>
+                              <svg 
+                                className={`h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`}
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor" 
+                                strokeWidth="2"
+                              >
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </button>
+                            
+                            {/* Content - Expandable */}
+                            {isOpen && (
+                              <div className="p-4 space-y-3 border-t border-slate-200">
+                                {/* Before */}
+                                <div>
+                                  <p className="text-xs font-medium text-slate-400 mb-1.5">SEBELUM</p>
+                                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                                    <p className="text-sm text-slate-700 leading-relaxed">{change.original}</p>
+                                  </div>
+                                </div>
+                                
+                                {/* After */}
+                                <div>
+                                  <p className="text-xs font-medium text-slate-400 mb-1.5">SESUDAH</p>
+                                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                                    <p className="text-sm text-slate-700 leading-relaxed">{change.revised}</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Reason */}
+                                {change.reason && (
+                                  <div className="mt-2 pt-2 border-t border-slate-100">
+                                    <p className="text-xs text-slate-500 flex items-start gap-1.5">
+                                      <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      {change.reason}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div>
-                              <p className="mb-1 text-xs text-slate-500">Sebelum:</p>
-                              <p className="rounded bg-red-50 p-2 text-sm text-slate-600">{change.original}</p>
-                            </div>
-                            <div>
-                              <p className="mb-1 text-xs text-slate-500">Sesudah:</p>
-                              <p className="rounded bg-green-50 p-2 text-sm text-slate-600">{change.revised}</p>
-                            </div>
-                          </div>
-                          {change.reason && (
-                            <p className="mt-2 text-xs text-blue-600">{change.reason}</p>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-400 italic">
-                      Tidak ada detail perubahan yang terdeteksi. Teks yang sudah diperbaiki tetap tersedia di atas.
-                    </p>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                      <p className="text-sm text-slate-500">
+                        Tidak ada detail perubahan yang terdeteksi.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
