@@ -411,8 +411,8 @@ export const analyzeHookMeter = async (text, retries = 2) => {
 
       const data = await response.json();
       
-      // Debug: log response structure
-      logger.debug({ response: JSON.stringify(data).slice(0, 500) }, "Hook Meter response");
+      // Debug: log response metadata only — never log LLM content
+      logger.debug({ status: data.status, model: data.model }, "Hook Meter response");
       
       // Check for API error in response
       if (data.error) {
