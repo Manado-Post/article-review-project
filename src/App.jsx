@@ -2299,7 +2299,7 @@ function App() {
                       </div>
                     );
                   })()}
-                  
+
                   {/* Changes detail - Dropdown Version */}
                   {revisionResult.changes && revisionResult.changes.length > 0 ? (
                     <div className="space-y-3">
