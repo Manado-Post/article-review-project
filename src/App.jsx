@@ -1230,6 +1230,150 @@ const HighlightedArticleText = ({ articleText, highlights, onHighlightClick, scr
   );
 };
 
+const PinGate = ({ onVerified }) => {
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (pin.length !== 6) {
+      setError("PIN harus 6 digit.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "PIN salah.");
+      localStorage.setItem("pin_verified", "true");
+      onVerified();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex overflow-x-hidden">
+      {/* LEFT SIDE - Elegant Dark Gradient */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-[#1a1a2e] to-[#16213e] relative overflow-hidden flex-col items-center justify-center p-12">
+        <div className="absolute top-20 right-20 w-80 h-80 bg-gradient-to-br from-purple-500/10 to-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-tr from-indigo-500/10 to-purple-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
+
+        <div className="absolute top-8 left-8 flex items-center gap-0">
+          <img
+            src={mdopostLogo}
+            alt="MDOPost Logo"
+            className="w-40 h-40 object-contain drop-shadow-2xl -mr-2"
+          />
+          <img
+            src={manadoPostWordmark}
+            alt="ManadoPost.id"
+            className="h-16 w-auto object-contain brightness-0 invert drop-shadow-2xl"
+          />
+        </div>
+
+        <div className="relative z-10 text-left w-full max-w-md">
+          <h1 className="text-5xl font-bold text-white tracking-tight drop-shadow-2xl leading-tight">
+            Article Quality
+          </h1>
+          <h2 className="text-5xl font-bold text-white/90 tracking-tight drop-shadow-2xl">
+            Analyzer
+          </h2>
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-4 text-white/30">
+              <div className="w-12 h-0.5 bg-white/20" />
+              <span className="text-sm tracking-[0.2em] uppercase text-white/40">
+                Akses Terbatas
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT SIDE - White Card */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100/50 p-6">
+        <div className="w-full max-w-sm">
+          <div className="flex lg:hidden items-center gap-0 mb-8">
+            <img
+              src={mdopostLogo}
+              alt="MDOPost Logo"
+              className="w-28 h-28 object-contain drop-shadow-lg"
+            />
+            <img
+              src={manadoPostWordmark}
+              alt="ManadoPost.id"
+              className="h-14 w-auto object-contain"
+            />
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl shadow-slate-200/50 p-8 border border-white/50">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-[#005a8c] tracking-tight">
+                PIN Akses
+              </h2>
+              <p className="text-[#005a8c]-400 text-sm mt-1">
+                Masukkan PIN untuk melanjutkan
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={pin}
+                  onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="••••••"
+                  autoFocus
+                  className="w-full px-4 py-4 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-[#005a8c]-400 focus:ring-2 focus:ring-[#005a8c]-400/20 focus:bg-white transition-all text-center text-2xl"
+                  style={{ letterSpacing: "0.5em" }}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || pin.length !== 6}
+                className="w-full bg-[#005a8c] hover:bg-[#004973] text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-[#005a8c]/20 hover:shadow-xl hover:shadow-[#005a8c]/30 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Memproses...
+                  </span>
+                ) : "Masuk"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 
 const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
@@ -1304,7 +1448,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
             <div className="flex items-center gap-4 text-white/30">
               <div className="w-12 h-0.5 bg-white/20" />
               <span className="text-sm tracking-[0.2em] uppercase text-white/40">
-                {showRegister ? "Create Account" : "Sign In"}
+                {showRegister ? "Buat Akun" : "Masuk"}
               </span>
             </div>
           </div>
@@ -1332,42 +1476,28 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
           {/* Card - Clean white with subtle shadow */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl shadow-slate-200/50 p-8 border border-white/50">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
-                {showRegister ? "Create your account" : "Welcome Back"}
+              <h2 className="text-3xl font-bold text-[#005a8c] tracking-tight">
+                {showRegister ? "Buat Akun" : "Selamat Datang"}
               </h2>
               <p className="text-slate-400 text-sm mt-1">
-                {showRegister ? "Sign up to get started" : "Sign in to continue"}
+                {showRegister ? "Daftar untuk memulai" : "Masuk untuk melanjutkan"}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-slate-600 text-sm font-medium mb-1.5">
-                  {showRegister ? "Name" : "Email Address"}
+                  Username
                 </label>
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder={showRegister ? "Enter your name" : "s22310244@student.unklab.ac.id"}
+                  placeholder="Masukkan username"
                   className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all"
                 />
               </div>
-
-              {showRegister && (
-                <div>
-                  <label className="block text-slate-600 text-sm font-medium mb-1.5">
-                    E-mail Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter your email"
-                    className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all"
-                  />
-                </div>
-              )}
 
               <div>
                 <label className="block text-slate-600 text-sm font-medium mb-1.5">
@@ -1379,7 +1509,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder="Masukkan password"
                     className="w-full px-4 py-3 bg-slate-50/80 border border-slate-200/50 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:bg-white transition-all pr-12"
                   />
                   <button
@@ -1411,7 +1541,7 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-slate-800 via-[#1a1a2e] to-slate-900 hover:from-slate-700 hover:via-[#2a2a4e] hover:to-slate-800 rounded-xl text-white font-semibold text-base shadow-lg shadow-slate-800/20 hover:shadow-xl hover:shadow-slate-800/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3.5 bg-[#005a8c] hover:bg-[#004973] rounded-xl text-white font-semibold text-base shadow-lg shadow-[#005a8c]/20 hover:shadow-xl hover:shadow-[#005a8c]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -1419,23 +1549,23 @@ const LoginPage = ({ onLogin, showRegister, setShowRegister }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Processing...
+                    Memproses...
                   </span>
                 ) : (
-                  showRegister ? "Sign Up" : "Sign In"
+                  showRegister ? "Daftar" : "Masuk"
                 )}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-slate-400 text-sm">
-                {showRegister ? "Already have an account?" : "Don't have an account?"}
+                {showRegister ? "Sudah punya akun?" : "Belum punya akun?"}
                 <button
                   type="button"
                   onClick={() => { setShowRegister(!showRegister); setError(""); }}
-                  className="ml-2 text-slate-700 hover:text-slate-900 font-semibold transition-colors"
+                  className="ml-2 text-[#005a8c] hover:text-[#004973] font-semibold transition-colors"
                 >
-                  {showRegister ? "Sign In" : "Sign Up"}
+                  {showRegister ? "Masuk" : "Daftar"}
                 </button>
               </p>
             </div>
@@ -1464,7 +1594,7 @@ function App() {
   const pinEnabled = import.meta.env.VITE_PIN_ENABLED === "true";
   const [hasPinVerified, setHasPinVerified] = useState(() => {
     if (!pinEnabled) return true;
-    return sessionStorage.getItem("pin_verified") === "true";
+    return localStorage.getItem("pin_verified") === "true";
   });
   
   // Revision states
@@ -1898,6 +2028,7 @@ function App() {
     setToken(null);
     setUser(null);
     localStorage.removeItem("token");
+    localStorage.removeItem("pin_verified");
   };
 
   if (pinEnabled && !hasPinVerified) {
